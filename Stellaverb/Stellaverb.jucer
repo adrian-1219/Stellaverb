@@ -1,16 +1,17 @@
 <?xml version="1.0" encoding="UTF-8"?>
 
-<JUCERPROJECT id="LOXHhW" name="Stellaverb" projectType="audioplug" useAppConfig="0"
+<JUCERPROJECT id="MUfHYk" name="Stellaverb" projectType="audioplug" useAppConfig="0"
               addUsingNamespaceToJuceHeader="0" jucerFormatVersion="1">
-  <MAINGROUP id="W19EVO" name="Stellaverb">
-    <GROUP id="{5C3EDAFB-5079-8BE7-92C4-E1948DCE466C}" name="Source">
-      <FILE id="NfTW7v" name="PluginProcessor.cpp" compile="1" resource="0"
+  <MAINGROUP id="zAIKHU" name="Stellaverb">
+    <GROUP id="{88B177CC-4518-6E33-83DA-73272A8E4740}" name="Source">
+      <FILE id="rnOLCn" name="PluginProcessor.cpp" compile="1" resource="0"
             file="Source/PluginProcessor.cpp"/>
-      <FILE id="kZMSLA" name="PluginProcessor.h" compile="0" resource="0"
+      <FILE id="VXblnV" name="PluginProcessor.h" compile="0" resource="0"
             file="Source/PluginProcessor.h"/>
-      <FILE id="iOopor" name="PluginEditor.cpp" compile="1" resource="0"
+      <FILE id="D10nHU" name="PluginEditor.cpp" compile="1" resource="0"
             file="Source/PluginEditor.cpp"/>
-      <FILE id="IB2Mc1" name="PluginEditor.h" compile="0" resource="0" file="Source/PluginEditor.h"/>
+      <FILE id="oQKyzR" name="IRGenerator.h" compile="0" resource="0" file="Source/IRGenerator.h"/>
+      <FILE id="X3vUGs" name="PluginEditor.h" compile="0" resource="0" file="Source/PluginEditor.h"/>
     </GROUP>
   </MAINGROUP>
   <MODULES>
@@ -20,14 +21,16 @@
     <MODULE id="juce_audio_plugin_client" showAllCode="1" useLocalCopy="0"
             useGlobalPath="1"/>
     <MODULE id="juce_audio_processors" showAllCode="1" useLocalCopy="0" useGlobalPath="1"/>
+    <MODULE id="juce_audio_processors_headless" showAllCode="1" useLocalCopy="0"
+            useGlobalPath="1"/>
     <MODULE id="juce_audio_utils" showAllCode="1" useLocalCopy="0" useGlobalPath="1"/>
     <MODULE id="juce_core" showAllCode="1" useLocalCopy="0" useGlobalPath="1"/>
     <MODULE id="juce_data_structures" showAllCode="1" useLocalCopy="0" useGlobalPath="1"/>
+    <MODULE id="juce_dsp" showAllCode="1" useLocalCopy="0" useGlobalPath="1"/>
     <MODULE id="juce_events" showAllCode="1" useLocalCopy="0" useGlobalPath="1"/>
     <MODULE id="juce_graphics" showAllCode="1" useLocalCopy="0" useGlobalPath="1"/>
     <MODULE id="juce_gui_basics" showAllCode="1" useLocalCopy="0" useGlobalPath="1"/>
     <MODULE id="juce_gui_extra" showAllCode="1" useLocalCopy="0" useGlobalPath="1"/>
-    <MODULE id="juce_opengl" showAllCode="1" useLocalCopy="0" useGlobalPath="1"/>
   </MODULES>
   <JUCEOPTIONS JUCE_STRICT_REFCOUNTEDPOINTER="1" JUCE_VST3_CAN_REPLACE_VST2="0"/>
   <EXPORTFORMATS>
@@ -37,19 +40,20 @@
         <CONFIGURATION isDebug="0" name="Release" targetName="Stellaverb"/>
       </CONFIGURATIONS>
       <MODULEPATHS>
-        <MODULEPATH id="juce_audio_basics" path="../../../../../Documents/JUCE/modules"/>
-        <MODULEPATH id="juce_audio_devices" path="../../../../../Documents/JUCE/modules"/>
-        <MODULEPATH id="juce_audio_formats" path="../../../../../Documents/JUCE/modules"/>
-        <MODULEPATH id="juce_audio_plugin_client" path="../../../../../Documents/JUCE/modules"/>
-        <MODULEPATH id="juce_audio_processors" path="../../../../../Documents/JUCE/modules"/>
-        <MODULEPATH id="juce_audio_utils" path="../../../../../Documents/JUCE/modules"/>
-        <MODULEPATH id="juce_core" path="../../../../../Documents/JUCE/modules"/>
-        <MODULEPATH id="juce_data_structures" path="../../../../../Documents/JUCE/modules"/>
-        <MODULEPATH id="juce_events" path="../../../../../Documents/JUCE/modules"/>
-        <MODULEPATH id="juce_graphics" path="../../../../../Documents/JUCE/modules"/>
-        <MODULEPATH id="juce_gui_basics" path="../../../../../Documents/JUCE/modules"/>
-        <MODULEPATH id="juce_gui_extra" path="../../../../../Documents/JUCE/modules"/>
-        <MODULEPATH id="juce_opengl" path="../../../../../Documents/JUCE/modules"/>
+        <MODULEPATH id="juce_audio_basics" path="../../JUCE/modules"/>
+        <MODULEPATH id="juce_audio_devices" path="../../JUCE/modules"/>
+        <MODULEPATH id="juce_audio_formats" path="../../JUCE/modules"/>
+        <MODULEPATH id="juce_audio_plugin_client" path="../../JUCE/modules"/>
+        <MODULEPATH id="juce_audio_processors" path="../../JUCE/modules"/>
+        <MODULEPATH id="juce_audio_processors_headless" path="../../JUCE/modules"/>
+        <MODULEPATH id="juce_audio_utils" path="../../JUCE/modules"/>
+        <MODULEPATH id="juce_core" path="../../JUCE/modules"/>
+        <MODULEPATH id="juce_data_structures" path="../../JUCE/modules"/>
+        <MODULEPATH id="juce_dsp" path="../../JUCE/modules"/>
+        <MODULEPATH id="juce_events" path="../../JUCE/modules"/>
+        <MODULEPATH id="juce_graphics" path="../../JUCE/modules"/>
+        <MODULEPATH id="juce_gui_basics" path="../../JUCE/modules"/>
+        <MODULEPATH id="juce_gui_extra" path="../../JUCE/modules"/>
       </MODULEPATHS>
     </XCODE_MAC>
   </EXPORTFORMATS>

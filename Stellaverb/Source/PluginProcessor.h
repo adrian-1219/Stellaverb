@@ -52,6 +52,19 @@ public:
     //==============================================================================
     void getStateInformation (juce::MemoryBlock& destData) override;
     void setStateInformation (const void* data, int sizeInBytes) override;
+    
+    juce::AudioProcessorValueTreeState::ParameterLayout createParameterLayout();
+    juce::AudioProcessorValueTreeState parameters;
+    juce::AudioTransportSource transportSource;
+
+    juce::dsp::Convolution convolution;
+    
+    
+    // For loading file for testing purposes
+    juce::AudioFormatManager formatManager;
+    void loadFile();
+    std::unique_ptr<juce::AudioFormatReaderSource> readerSource;
+    
 
 private:
     //==============================================================================

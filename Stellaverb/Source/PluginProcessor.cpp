@@ -8,6 +8,7 @@
 
 #include "PluginProcessor.h"
 #include "PluginEditor.h"
+#include "IRGenerator.h"
 
 //==============================================================================
 StellaverbAudioProcessor::StellaverbAudioProcessor()
@@ -19,9 +20,10 @@ StellaverbAudioProcessor::StellaverbAudioProcessor()
                       #endif
                        .withOutput ("Output", juce::AudioChannelSet::stereo(), true)
                      #endif
-                       )
+                       ), parameters(*this, nullptr, "parameters", createParameterLayout())
 #endif
 {
+    formatManager.registerBasicFormats(); // WAV, AIFF, MP3, etc.
 }
 
 StellaverbAudioProcessor::~StellaverbAudioProcessor()
@@ -93,14 +95,75 @@ void StellaverbAudioProcessor::changeProgramName (int index, const juce::String&
 //==============================================================================
 void StellaverbAudioProcessor::prepareToPlay (double sampleRate, int samplesPerBlock)
 {
-    // Use this method as the place to do any pre-playback
-    // initialisation that you need..
+    // Load audio file for testing purposes
+
+    transportSource.stop();
+    transportSource.setSource(nullptr);
+    readerSource.reset();
+    
+    juce::File file = juce::File::getSpecialLocation(juce::File::userDesktopDirectory)
+                        .getChildFile("test.wav");
+
+    auto *reader = formatManager.createReaderFor(file); // Read the file...
+
+    if (reader != nullptr) // if the reader is not empty
+    {
+        DBG("File Loaded Successfully: " << file.getFileName());
+        auto newSource = std::make_unique<juce::AudioFormatReaderSource>(reader, true); // starting te variable who is gonna store the content.
+        transportSource.setSource(newSource.get(), 0, nullptr, reader->sampleRate);
+        readerSource.swap(newSource);
+        transportSource.start();
+    }
+    else
+    {
+        DBG("Failed to create reader for: " << file.getFileName());
+    }
+    transportSource.prepareToPlay(samplesPerBlock, sampleRate);
+        
+    
+    // Convolution
+    juce::dsp::ProcessSpec spec;
+    spec.sampleRate = sampleRate;
+    spec.maximumBlockSize = samplesPerBlock;
+    spec.numChannels = getTotalNumOutputChannels();
+    
+    convolution.prepare(spec);
+    
+    // Load an IR file (WAV)
+    juce::File irFile = juce::File::getSpecialLocation(juce::File::userApplicationDataDirectory)
+        .getChildFile("Stellaverb")
+        .getChildFile("generated_ir.wav");
+    
+    DBG("IR path: " << irFile.getFullPathName());
+    DBG("Exists before load: " << int(irFile.existsAsFile()));
+    
+    irFile.getParentDirectory().createDirectory();
+    
+    // If it doesn't exist, generate the default IR
+    if (!irFile.existsAsFile())
+    {
+        DBG("IR file not found, generating new one...");
+        IRGenerator irGenerator = IRGenerator(44100.0f, 2);
+        irGenerator.setLengthSeconds(2.5f);
+        irGenerator.setDecay(4.0f);
+        irGenerator.setNumReflections(20);
+        irGenerator.setLowpassFrequency(5000.0f);
+
+        irGenerator.generate();
+
+        irGenerator.saveToWav(irFile);
+    }
+    
+    convolution.loadImpulseResponse(irFile, juce::dsp::Convolution::Stereo::yes, juce::dsp::Convolution::Trim::no, irFile.getSize());
 }
 
 void StellaverbAudioProcessor::releaseResources()
 {
     // When playback stops, you can use this as an opportunity to free up any
     // spare memory, etc.
+    transportSource.stop();
+    transportSource.setSource(nullptr);
+    readerSource.reset();
 }
 
 #ifndef JucePlugin_PreferredChannelConfigurations
@@ -150,12 +213,19 @@ void StellaverbAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, j
     // the samples and the outer loop is handling the channels.
     // Alternatively, you can process the samples with the channels
     // interleaved by keeping the same state.
-    for (int channel = 0; channel < totalNumInputChannels; ++channel)
+    if (readerSource != nullptr)
     {
-        auto* channelData = buffer.getWritePointer (channel);
-
-        // ..do something to the data...
+        if (!transportSource.isPlaying())
+            transportSource.start();
+        
+        juce::AudioSourceChannelInfo loadedFile(buffer);
+        transportSource.getNextAudioBlock(loadedFile);
     }
+    
+    juce::dsp::AudioBlock<float> block(buffer);
+    juce::dsp::ProcessContextReplacing<float> context(block);
+    convolution.process(context);
+    
 }
 
 //==============================================================================
@@ -188,4 +258,28 @@ void StellaverbAudioProcessor::setStateInformation (const void* data, int sizeIn
 juce::AudioProcessor* JUCE_CALLTYPE createPluginFilter()
 {
     return new StellaverbAudioProcessor();
+}
+
+juce::AudioProcessorValueTreeState::ParameterLayout StellaverbAudioProcessor::createParameterLayout()
+{
+    std::vector<std::unique_ptr<juce::RangedAudioParameter>> parameters;
+
+//    // Buttons
+//    parameters.push_back(std::make_unique<juce::AudioParameterBool>(juce::ParameterID{"file", 1}, "File", 0));
+//    parameters.push_back(std::make_unique<juce::AudioParameterBool>(juce::ParameterID{"play", 1}, "Play", 0));
+//    parameters.push_back(std::make_unique<juce::AudioParameterBool>(juce::ParameterID{"stop", 1}, "Stop", 0));
+//    // Sliders
+//    parameters.push_back(std::make_unique<juce::AudioParameterFloat>(juce::ParameterID{"highGain", 1}, "HighGain", -40.0f, 20.0f, 0.5f));
+//    parameters.push_back(std::make_unique<juce::AudioParameterFloat>(juce::ParameterID{"highQ", 1}, "HighQ", 0.1f, 10.0f, 0.5f));
+//    parameters.push_back(std::make_unique<juce::AudioParameterFloat>(juce::ParameterID{"highFrequency", 1}, "highFrequency", 450.0f, 18000.0f, 3000.0f));
+//    parameters.push_back(std::make_unique<juce::AudioParameterFloat>(juce::ParameterID{"lowGain", 1}, "lowGain", -40.0f, 20.0f, 0.5f));
+//    parameters.push_back(std::make_unique<juce::AudioParameterFloat>(juce::ParameterID{"lowQ", 1}, "LowQ", 0.1f, 10.0f, 0.5f));
+//    parameters.push_back(std::make_unique<juce::AudioParameterFloat>(juce::ParameterID{"lowFrequency", 1}, "LowFrequency", 10.0f, 600.0f, 150.0f));
+    
+    
+    parameters.push_back(std::make_unique<juce::AudioParameterFloat>(juce::ParameterID{"length", 1}, "Length", 0.05f, 5.0f, 1.0f));
+    parameters.push_back(std::make_unique<juce::AudioParameterFloat>(juce::ParameterID{"decayTime", 1}, "DecayTime", 0.05f, 5.0, 1.0f));
+    parameters.push_back(std::make_unique<juce::AudioParameterInt>(juce::ParameterID{"numReflections", 1}, "NumReflections", 1, 100, 10));
+
+    return {parameters.begin(), parameters.end()};
 }
