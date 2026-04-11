@@ -14,21 +14,31 @@
 StellaverbAudioProcessorEditor::StellaverbAudioProcessorEditor (StellaverbAudioProcessor& p)
     : AudioProcessorEditor (&p), audioProcessor (p)
 {
+    formatManager.registerBasicFormats();
+
+    addAndMakeVisible(waveformDisplay);
+    
     addAndMakeVisible(generateButton);
     generateButton.onClick = [this]()
     {
+        audioProcessor.irReady = false;
+        
         auto length = audioProcessor.parameters.getRawParameterValue("length")->load();
         auto decayTime = audioProcessor.parameters.getRawParameterValue("decayTime")->load();
-        auto numReflections = audioProcessor.parameters.getRawParameterValue("numReflections")->load();
+        auto minDistance = audioProcessor.parameters.getRawParameterValue("minDistance")->load();
+        auto maxDistance = audioProcessor.parameters.getRawParameterValue("maxDistance")->load();
+        minDistance = minDistance / 7.0f;
+        maxDistance = maxDistance / 7.0f; // scale from parsecs to 0 to 1
         
         DBG("length: " + juce::String(length)
             + ", decayTime: " + juce::String(decayTime)
-            + ", numReflections: " + juce::String(numReflections));
+            + ", minDistance: " + juce::String(minDistance)
+            + ", maxDistance: " + juce::String(maxDistance));
         
         irGenerator.setLengthSeconds(length);
         irGenerator.setDecay(decayTime);
-        irGenerator.setNumReflections(numReflections);
-        irGenerator.setLowpassFrequency(5000.0f);
+        irGenerator.setMinDistance(minDistance);
+        irGenerator.setMaxDistance(maxDistance);
 
         irGenerator.generate();
 
@@ -38,13 +48,23 @@ StellaverbAudioProcessorEditor::StellaverbAudioProcessorEditor (StellaverbAudioP
 
         irGenerator.saveToWav(file);
         
-        audioProcessor.prepareToPlay(audioProcessor.getSampleRate(), audioProcessor.getBlockSize());
+        // Load the generated IR file into the thumbnail
+        thumbnail.setSource(nullptr);
+        thumbnail.clear();
+
+        thumbnail.setSource(new juce::FileInputSource(file));
+        
+        DBG(thumbnail.getTotalLength());
+        
+        waveformDisplay.repaint();
         
         DBG("Successfully generated IR");
+        
+        audioProcessor.prepareToPlay(audioProcessor.getSampleRate(), audioProcessor.getBlockSize());
     };
     
-    auto sliders = { &length, &decayTime, &numReflections};
-    auto labels  = { &lengthLabel, &decayTimeLabel, &numReflectionsLabel};
+    auto sliders = { &length, &decayTime, &minDistance, &maxDistance};
+    auto labels  = { &lengthLabel, &decayTimeLabel, &minDistanceLabel, &maxDistanceLabel};
     for (auto* slider : sliders)
     {
         addAndMakeVisible (slider);
@@ -64,16 +84,20 @@ StellaverbAudioProcessorEditor::StellaverbAudioProcessorEditor (StellaverbAudioP
     decayTimeLabel.setText ("Decay Time", juce::dontSendNotification);
     decayTimeLabel.attachToComponent (&decayTime, false);
     
-    numReflectionsLabel.setText ("Num Reflections", juce::dontSendNotification);
-    numReflectionsLabel.attachToComponent (&numReflections, false);
+    minDistanceLabel.setText ("Min Distance", juce::dontSendNotification);
+    minDistanceLabel.attachToComponent (&minDistance, false);
+    
+    maxDistanceLabel.setText ("Max Distance", juce::dontSendNotification);
+    maxDistanceLabel.attachToComponent (&maxDistance, false);
     
     lengthAttachment = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(audioProcessor.parameters,"length", length);
     decayTimeAttachment = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(audioProcessor.parameters, "decayTime", decayTime);
-    numReflectionsAttachment = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(audioProcessor.parameters, "numReflections", numReflections);
+    minDistanceAttachment = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(audioProcessor.parameters, "minDistance", minDistance);
+    maxDistanceAttachment = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(audioProcessor.parameters, "maxDistance", maxDistance);
     
     // Make sure that before the constructor has finished, you've set the
     // editor's size to whatever you need it to be.
-    setSize (400, 300);
+    setSize (600, 400);
 }
 
 StellaverbAudioProcessorEditor::~StellaverbAudioProcessorEditor()
@@ -90,21 +114,30 @@ void StellaverbAudioProcessorEditor::paint (juce::Graphics& g)
     g.setFont (juce::FontOptions (15.0f));
     
     generateButton.setBounds(20, 20, 150, 40);
+    // waveformDisplay painting is handled by its own paint method
 }
 
 void StellaverbAudioProcessorEditor::resized()
 {
-    // This is generally where you'll want to lay out the positions of any
-    // subcomponents in your editor..
     int sliderWidth = 100;
     int sliderHeight = 100;
     int padding = 20;
     int y = 80;
-    int x = padding;
+    
+    // Center the sliders
+    int totalWidth = (sliderWidth * 4) + (padding * 3);
+    int startX = (getWidth() - totalWidth) / 2;
+    int x = startX;
     
     length.setBounds(x, y, sliderWidth, sliderHeight);
     x += sliderWidth + padding;
     decayTime.setBounds(x, y, sliderWidth, sliderHeight);
     x += sliderWidth + padding;
-    numReflections.setBounds(x, y, sliderWidth, sliderHeight);
+    minDistance.setBounds(x, y, sliderWidth, sliderHeight);
+    x += sliderWidth + padding;
+    maxDistance.setBounds(x, y, sliderWidth, sliderHeight);
+    
+    // Place waveform display below sliders
+    int waveformY = y + sliderHeight + padding + 20;
+    waveformDisplay.setBounds(20, waveformY, getWidth() - 40, getHeight() - waveformY - 20);
 }

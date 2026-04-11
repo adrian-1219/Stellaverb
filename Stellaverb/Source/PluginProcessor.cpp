@@ -109,7 +109,7 @@ void StellaverbAudioProcessor::prepareToPlay (double sampleRate, int samplesPerB
     if (reader != nullptr) // if the reader is not empty
     {
         DBG("File Loaded Successfully: " << file.getFileName());
-        auto newSource = std::make_unique<juce::AudioFormatReaderSource>(reader, true); // starting te variable who is gonna store the content.
+        auto newSource = std::make_unique<juce::AudioFormatReaderSource>(reader, true); 
         transportSource.setSource(newSource.get(), 0, nullptr, reader->sampleRate);
         readerSource.swap(newSource);
         transportSource.start();
@@ -129,6 +129,10 @@ void StellaverbAudioProcessor::prepareToPlay (double sampleRate, int samplesPerB
     
     convolution.prepare(spec);
     
+    // Output Gain
+    outputGain.prepare(spec);
+    outputGain.setGainLinear(0.0f);
+    
     // Load an IR file (WAV)
     juce::File irFile = juce::File::getSpecialLocation(juce::File::userApplicationDataDirectory)
         .getChildFile("Stellaverb")
@@ -146,8 +150,7 @@ void StellaverbAudioProcessor::prepareToPlay (double sampleRate, int samplesPerB
         IRGenerator irGenerator = IRGenerator(44100.0f, 2);
         irGenerator.setLengthSeconds(2.5f);
         irGenerator.setDecay(4.0f);
-        irGenerator.setNumReflections(20);
-        irGenerator.setLowpassFrequency(5000.0f);
+        irGenerator.setMaxDistance(1.0f);
 
         irGenerator.generate();
 
@@ -155,6 +158,7 @@ void StellaverbAudioProcessor::prepareToPlay (double sampleRate, int samplesPerB
     }
     
     convolution.loadImpulseResponse(irFile, juce::dsp::Convolution::Stereo::yes, juce::dsp::Convolution::Trim::no, irFile.getSize());
+    irReady = true;
 }
 
 void StellaverbAudioProcessor::releaseResources()
@@ -224,8 +228,16 @@ void StellaverbAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, j
     
     juce::dsp::AudioBlock<float> block(buffer);
     juce::dsp::ProcessContextReplacing<float> context(block);
-    convolution.process(context);
-    
+    if (irReady)
+    {
+        outputGain.setGainLinear(1.0f);
+        convolution.process(context);
+    }
+    else
+    {
+        outputGain.setGainLinear(0.0f);
+    }
+    outputGain.process(context);
 }
 
 //==============================================================================
@@ -263,23 +275,15 @@ juce::AudioProcessor* JUCE_CALLTYPE createPluginFilter()
 juce::AudioProcessorValueTreeState::ParameterLayout StellaverbAudioProcessor::createParameterLayout()
 {
     std::vector<std::unique_ptr<juce::RangedAudioParameter>> parameters;
-
-//    // Buttons
-//    parameters.push_back(std::make_unique<juce::AudioParameterBool>(juce::ParameterID{"file", 1}, "File", 0));
-//    parameters.push_back(std::make_unique<juce::AudioParameterBool>(juce::ParameterID{"play", 1}, "Play", 0));
-//    parameters.push_back(std::make_unique<juce::AudioParameterBool>(juce::ParameterID{"stop", 1}, "Stop", 0));
-//    // Sliders
-//    parameters.push_back(std::make_unique<juce::AudioParameterFloat>(juce::ParameterID{"highGain", 1}, "HighGain", -40.0f, 20.0f, 0.5f));
-//    parameters.push_back(std::make_unique<juce::AudioParameterFloat>(juce::ParameterID{"highQ", 1}, "HighQ", 0.1f, 10.0f, 0.5f));
-//    parameters.push_back(std::make_unique<juce::AudioParameterFloat>(juce::ParameterID{"highFrequency", 1}, "highFrequency", 450.0f, 18000.0f, 3000.0f));
-//    parameters.push_back(std::make_unique<juce::AudioParameterFloat>(juce::ParameterID{"lowGain", 1}, "lowGain", -40.0f, 20.0f, 0.5f));
-//    parameters.push_back(std::make_unique<juce::AudioParameterFloat>(juce::ParameterID{"lowQ", 1}, "LowQ", 0.1f, 10.0f, 0.5f));
-//    parameters.push_back(std::make_unique<juce::AudioParameterFloat>(juce::ParameterID{"lowFrequency", 1}, "LowFrequency", 10.0f, 600.0f, 150.0f));
     
     
     parameters.push_back(std::make_unique<juce::AudioParameterFloat>(juce::ParameterID{"length", 1}, "Length", 0.05f, 5.0f, 1.0f));
-    parameters.push_back(std::make_unique<juce::AudioParameterFloat>(juce::ParameterID{"decayTime", 1}, "DecayTime", 0.05f, 5.0, 1.0f));
-    parameters.push_back(std::make_unique<juce::AudioParameterInt>(juce::ParameterID{"numReflections", 1}, "NumReflections", 1, 100, 10));
-
+    parameters.push_back(std::make_unique<juce::AudioParameterFloat>(juce::ParameterID{"decayTime", 1}, "DecayTime", 0.05f, 10.0f, 1.0f));
+    parameters.push_back(std::make_unique<juce::AudioParameterFloat>(juce::ParameterID{"minDistance", 1}, "MinDistance", 0.0f, 6.5f, 0.0f));
+    parameters.push_back(std::make_unique<juce::AudioParameterFloat>(juce::ParameterID{"maxDistance", 1}, "MaxDistance", 0.5f, 7.0f, 7.0f));
+    parameters.push_back(std::make_unique<juce::AudioParameterFloat>(juce::ParameterID{"gain", 1}, "Gain", 0.0f, 20.0f, 0.0f));
+    
+    
+    
     return {parameters.begin(), parameters.end()};
 }

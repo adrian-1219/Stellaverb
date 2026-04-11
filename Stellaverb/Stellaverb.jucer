@@ -3,6 +3,10 @@
 <JUCERPROJECT id="MUfHYk" name="Stellaverb" projectType="audioplug" useAppConfig="0"
               addUsingNamespaceToJuceHeader="0" jucerFormatVersion="1">
   <MAINGROUP id="zAIKHU" name="Stellaverb">
+    <GROUP id="{D0FC7BEB-203D-0F13-A0EA-6D93AFF219A2}" name="Resources">
+      <FILE id="v490wK" name="stars_sorted.bin" compile="0" resource="1"
+            file="Source/stars_sorted.bin"/>
+    </GROUP>
     <GROUP id="{88B177CC-4518-6E33-83DA-73272A8E4740}" name="Source">
       <FILE id="rnOLCn" name="PluginProcessor.cpp" compile="1" resource="0"
             file="Source/PluginProcessor.cpp"/>

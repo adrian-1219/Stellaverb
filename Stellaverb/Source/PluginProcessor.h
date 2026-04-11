@@ -55,18 +55,22 @@ public:
     
     juce::AudioProcessorValueTreeState::ParameterLayout createParameterLayout();
     juce::AudioProcessorValueTreeState parameters;
-    juce::AudioTransportSource transportSource;
 
     juce::dsp::Convolution convolution;
-    
+    juce::dsp::Gain<float> outputGain;
     
     // For loading file for testing purposes
+    juce::AudioTransportSource transportSource;
     juce::AudioFormatManager formatManager;
     void loadFile();
     std::unique_ptr<juce::AudioFormatReaderSource> readerSource;
+    
+    std::atomic<bool> irReady { false };
     
 
 private:
     //==============================================================================
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (StellaverbAudioProcessor)
+    
+    
 };
