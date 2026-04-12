@@ -113,9 +113,6 @@ public:
                 data[i] = data[i] * env;
             }
         }
-
-//        addEarlyReflections();
-//        applyLowpassFilter();
         normalize();
     
     }

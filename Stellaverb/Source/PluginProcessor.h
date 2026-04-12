@@ -67,11 +67,8 @@ public:
     juce::dsp::ProcessorDuplicator<Filter, Coefficients> lowPassFilter;
     juce::dsp::ProcessorDuplicator<Filter, Coefficients> highPassFilter;
     
-    // For loading file for testing purposes
-    juce::AudioTransportSource transportSource;
+    juce::AudioBuffer<float> dryBuffer;
     juce::AudioFormatManager formatManager;
-    void loadFile();
-    std::unique_ptr<juce::AudioFormatReaderSource> readerSource;
     
     std::atomic<bool> irReady { false };
     

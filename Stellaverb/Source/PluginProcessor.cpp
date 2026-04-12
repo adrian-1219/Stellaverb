@@ -95,31 +95,8 @@ void StellaverbAudioProcessor::changeProgramName (int index, const juce::String&
 //==============================================================================
 void StellaverbAudioProcessor::prepareToPlay (double sampleRate, int samplesPerBlock)
 {
-    // Load audio file for testing purposes
-
-    transportSource.stop();
-    transportSource.setSource(nullptr);
-    readerSource.reset();
+    dryBuffer.setSize(getTotalNumOutputChannels(), samplesPerBlock);
     
-    juce::File file = juce::File::getSpecialLocation(juce::File::userDesktopDirectory)
-                        .getChildFile("test.wav");
-
-    auto *reader = formatManager.createReaderFor(file); // Read the file...
-
-    if (reader != nullptr) // if the reader is not empty
-    {
-        DBG("File Loaded Successfully: " << file.getFileName());
-        auto newSource = std::make_unique<juce::AudioFormatReaderSource>(reader, true);
-        transportSource.setSource(newSource.get(), 0, nullptr, reader->sampleRate);
-        readerSource.swap(newSource);
-        transportSource.start();
-    }
-    else
-    {
-        DBG("Failed to create reader for: " << file.getFileName());
-    }
-    transportSource.prepareToPlay(samplesPerBlock, sampleRate);
-        
     // Set up dsp module
     juce::dsp::ProcessSpec spec;
     spec.sampleRate = sampleRate;
@@ -176,9 +153,6 @@ void StellaverbAudioProcessor::releaseResources()
 {
     // When playback stops, you can use this as an opportunity to free up any
     // spare memory, etc.
-    transportSource.stop();
-    transportSource.setSource(nullptr);
-    readerSource.reset();
 }
 
 #ifndef JucePlugin_PreferredChannelConfigurations
@@ -229,18 +203,8 @@ void StellaverbAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, j
     // Alternatively, you can process the samples with the channels
     // interleaved by keeping the same state.
     
-    // load audio file for testing
-    if (readerSource != nullptr)
-    {
-        if (!transportSource.isPlaying())
-            transportSource.start();
-        
-        juce::AudioSourceChannelInfo loadedFile(buffer);
-        transportSource.getNextAudioBlock(loadedFile);
-    }
-    
-    juce::AudioBuffer<float> dryBuffer;
-    dryBuffer.makeCopyOf(buffer);
+    dryBuffer.copyFrom(0, 0, buffer, 0, 0, buffer.getNumSamples());
+    dryBuffer.copyFrom(1, 0, buffer, 1, 0, buffer.getNumSamples());
     
     auto sampleRate = getSampleRate();
     juce::dsp::AudioBlock<float> block(buffer);
@@ -256,7 +220,6 @@ void StellaverbAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, j
         auto drive = parameters.getRawParameterValue("drive")->load();
         auto dryWet = parameters.getRawParameterValue("dryWet")->load();
         
-        auto& block = context.getOutputBlock();
         auto numSamples = block.getNumSamples();
         auto* left  = block.getChannelPointer(0);
         auto* right = block.getChannelPointer(1);
@@ -270,7 +233,6 @@ void StellaverbAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, j
             float preDelaySamples = smoothedPreDelay * 0.001f * (float) sampleRate;
             preDelayL.setDelay(preDelaySamples);
             preDelayR.setDelay(preDelaySamples);
-            
             
             float inL = left[i];
             float inR = right[i];
@@ -298,8 +260,8 @@ void StellaverbAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, j
         {
             // saturation
             float saturationGainComp = 1.0f / std::sqrt(drive);
-            left[i]  = std::tanh(left[i] * drive) * saturationGainComp;
-            right[i] = std::tanh(right[i] * drive) * saturationGainComp;
+            left[i]  = juce::dsp::FastMathApproximations::tanh(left[i] * drive) * saturationGainComp;
+            right[i] = juce::dsp::FastMathApproximations::tanh(right[i] * drive) * saturationGainComp;
             
             // stereo widening using mid/side widening
             float L = left[i];
@@ -381,7 +343,7 @@ juce::AudioProcessorValueTreeState::ParameterLayout StellaverbAudioProcessor::cr
     parameters.push_back(std::make_unique<juce::AudioParameterFloat>(juce::ParameterID{"preDelay", 1}, "Predelay", 0.0f, 200.0f, 0.0f));
     parameters.push_back(std::make_unique<juce::AudioParameterFloat>(juce::ParameterID{"width", 1}, "Width", 0.01f, 2.0f, 1.0f));
     parameters.push_back(std::make_unique<juce::AudioParameterFloat>(juce::ParameterID{"dryWet", 1}, "Dry/Wet", 0.0f, 1.0f, 0.5f));
-    parameters.push_back(std::make_unique<juce::AudioParameterFloat>(juce::ParameterID{"gain", 1}, "Gain", -24.0f, 12.0f, 0.0f));
+    parameters.push_back(std::make_unique<juce::AudioParameterFloat>(juce::ParameterID{"gain", 1}, "Gain", -60.0f, 12.0f, 0.0f));
     parameters.push_back(std::make_unique<juce::AudioParameterFloat>(juce::ParameterID{"lowFreq", 1}, "LowFreq", 20.0f, 500.0f, 20.0f));
     parameters.push_back(std::make_unique<juce::AudioParameterFloat>(juce::ParameterID{"highFreq", 1}, "HighFreq", 2000.0f, 20000.0f, 20000.0f));
     parameters.push_back(std::make_unique<juce::AudioParameterFloat>(juce::ParameterID{"drive", 1}, "Drive", 1.0f, 15.0f, 1.0f));
