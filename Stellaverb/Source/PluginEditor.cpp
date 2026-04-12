@@ -29,6 +29,7 @@ StellaverbAudioProcessorEditor::StellaverbAudioProcessorEditor (StellaverbAudioP
         auto maxDistance = audioProcessor.parameters.getRawParameterValue("maxDistance")->load();
         auto minBrightness = audioProcessor.parameters.getRawParameterValue("minBrightness")->load();
         auto maxBrightness = audioProcessor.parameters.getRawParameterValue("maxBrightness")->load();
+        auto distanceScaleMode = audioProcessor.parameters.getRawParameterValue("scaleMode")->load();
         minDistance = minDistance / 7.0f;
         maxDistance = maxDistance / 7.0f; // scale from parsecs to 0 to 1
         
@@ -44,7 +45,7 @@ StellaverbAudioProcessorEditor::StellaverbAudioProcessorEditor (StellaverbAudioP
         irGenerator.setMinBrightness(minBrightness);
         irGenerator.setMaxBrightness(maxBrightness);
 
-        irGenerator.generate();
+        irGenerator.generate(distanceScaleMode);
 
         juce::File file = juce::File::getSpecialLocation(juce::File::userApplicationDataDirectory)
             .getChildFile("Stellaverb")
@@ -67,13 +68,14 @@ StellaverbAudioProcessorEditor::StellaverbAudioProcessorEditor (StellaverbAudioP
         audioProcessor.prepareToPlay(audioProcessor.getSampleRate(), audioProcessor.getBlockSize());
     };
     
-    auto sliders = { &length, &decayTime, &minDistance, &maxDistance, &minBrightness, &maxBrightness, &predelay, &width, &dryWet, &gain, &lowPassFreq, &highPassFreq, &colour};
-    auto labels  = { &lengthLabel, &decayTimeLabel, &minDistanceLabel, &maxDistanceLabel, &minBrightnessLabel, &maxBrightnessLabel, &predelayLabel, &widthLabel, &dryWetLabel, &gainLabel, &lowPassFreqLabel, &highPassFreqLabel, &colourLabel};
+    auto sliders = { &length, &decayTime, &minDistance, &maxDistance, &minBrightness, &maxBrightness, &predelay, &width, &dryWet, &gain, &lowFreq, &highFreq, &drive};
+    auto labels  = { &lengthLabel, &decayTimeLabel, &minDistanceLabel, &maxDistanceLabel, &minBrightnessLabel, &maxBrightnessLabel, &predelayLabel, &widthLabel, &dryWetLabel, &gainLabel, &lowFreqLabel, &highFreqLabel, &driveLabel};
     for (auto* slider : sliders)
     {
         addAndMakeVisible (slider);
         slider->setSliderStyle (juce::Slider::RotaryHorizontalVerticalDrag);
         slider->setTextBoxStyle (juce::Slider::TextBoxBelow, false, 50, 20);
+        slider->setLookAndFeel(&customLook);
     }
     for (auto* label : labels)
     {
@@ -112,14 +114,22 @@ StellaverbAudioProcessorEditor::StellaverbAudioProcessorEditor (StellaverbAudioP
     gainLabel.setText ("Gain", juce::dontSendNotification);
     gainLabel.attachToComponent (&gain, false);
 
-    lowPassFreqLabel.setText ("Low Pass", juce::dontSendNotification);
-    lowPassFreqLabel.attachToComponent (&lowPassFreq, false);
+    lowFreqLabel.setText ("Low Pass", juce::dontSendNotification);
+    lowFreqLabel.attachToComponent (&lowFreq, false);
 
-    highPassFreqLabel.setText ("High Pass", juce::dontSendNotification);
-    highPassFreqLabel.attachToComponent (&highPassFreq, false);
+    highFreqLabel.setText ("High Pass", juce::dontSendNotification);
+    highFreqLabel.attachToComponent (&highFreq, false);
 
-    colourLabel.setText ("Colour", juce::dontSendNotification);
-    colourLabel.attachToComponent (&colour, false);
+    driveLabel.setText ("Drive", juce::dontSendNotification);
+    driveLabel.attachToComponent (&drive, false);
+    
+//    addAndMakeVisible(distanceScaleMode);
+//    distanceScaleMode.addItem("Linear", 1);
+//    distanceScaleMode.addItem("Logarithmic", 2);
+    
+    addAndMakeVisible(distanceScaleModeLabel);
+    distanceScaleModeLabel.setText("Distance Scale Mode", juce::dontSendNotification);
+    distanceScaleModeLabel.attachToComponent(&distanceScaleMode, true);
     
     lengthAttachment = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(audioProcessor.parameters,"length", length);
     decayTimeAttachment = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(audioProcessor.parameters, "decayTime", decayTime);
@@ -131,9 +141,11 @@ StellaverbAudioProcessorEditor::StellaverbAudioProcessorEditor (StellaverbAudioP
     widthAttachment = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(audioProcessor.parameters, "width", width);
     dryWetAttachment = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(audioProcessor.parameters, "dryWet", dryWet);
     gainAttachment = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(audioProcessor.parameters, "gain", gain);
-    lowPassFreqAttachment = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(audioProcessor.parameters, "lowPassFreq", lowPassFreq);
-    highPassFreqAttachment = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(audioProcessor.parameters, "highPassFreq", highPassFreq);
-    colourAttachment = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(audioProcessor.parameters, "colour", colour);
+    lowFreqAttachment = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(audioProcessor.parameters, "lowFreq", lowFreq);
+    highFreqAttachment = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(audioProcessor.parameters, "highFreq", highFreq);
+    driveAttachment = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(audioProcessor.parameters, "drive", drive);
+    
+    distanceScaleModeAttachment = std::make_unique<juce::AudioProcessorValueTreeState::ComboBoxAttachment>(audioProcessor.parameters, "scaleMode", distanceScaleMode);
     
     // Make sure that before the constructor has finished, you've set the
     // editor's size to whatever you need it to be.
@@ -142,6 +154,12 @@ StellaverbAudioProcessorEditor::StellaverbAudioProcessorEditor (StellaverbAudioP
 
 StellaverbAudioProcessorEditor::~StellaverbAudioProcessorEditor()
 {
+    auto sliders = { &length, &decayTime, &minDistance, &maxDistance, &minBrightness, &maxBrightness, &predelay, &width, &dryWet, &gain, &lowFreq, &highFreq, &drive};
+    for (auto* slider : sliders)
+    {
+        slider->setLookAndFeel(nullptr);
+    }
+    
 }
 
 //==============================================================================
@@ -153,7 +171,7 @@ void StellaverbAudioProcessorEditor::paint (juce::Graphics& g)
     g.setColour (juce::Colours::white);
     g.setFont (juce::FontOptions (15.0f));
     
-    generateButton.setBounds(20, 20, 150, 40);
+    
     // waveformDisplay painting is handled by its own paint method
 }
 
@@ -163,6 +181,12 @@ void StellaverbAudioProcessorEditor::resized()
     int sliderHeight = 100;
     int padding = 20;
     int y = 80;
+    
+    // Generate IR button
+    generateButton.setBounds(600, 20, 150, 40);
+    
+    // Distance Scale Mode
+    distanceScaleMode.setBounds(250, 30, 200, 20);
     
     // Center the sliders (top row - 6 options)
     int totalWidthTop = (sliderWidth * 6) + (padding * 5);
@@ -191,11 +215,11 @@ void StellaverbAudioProcessorEditor::resized()
     x2 += sliderWidth + padding;
     width.setBounds(x2, bottomRowY, sliderWidth, sliderHeight);
     x2 += sliderWidth + padding;
-    lowPassFreq.setBounds(x2, bottomRowY, sliderWidth, sliderHeight);
+    lowFreq.setBounds(x2, bottomRowY, sliderWidth, sliderHeight);
     x2 += sliderWidth + padding;
-    highPassFreq.setBounds(x2, bottomRowY, sliderWidth, sliderHeight);
+    highFreq.setBounds(x2, bottomRowY, sliderWidth, sliderHeight);
     x2 += sliderWidth + padding;
-    colour.setBounds(x2, bottomRowY, sliderWidth, sliderHeight);
+    drive.setBounds(x2, bottomRowY, sliderWidth, sliderHeight);
     x2 += sliderWidth + padding;
     dryWet.setBounds(x2, bottomRowY, sliderWidth, sliderHeight);
     x2 += sliderWidth + padding;
@@ -204,4 +228,77 @@ void StellaverbAudioProcessorEditor::resized()
     // Place waveform display below sliders and above bottom row
     int waveformY = y + sliderHeight + padding + 20;
     waveformDisplay.setBounds(20, waveformY, getWidth() - 40, bottomRowY - waveformY - 20);
+}
+
+void CustomLookAndFeel::drawRotarySlider(juce::Graphics& g,
+                                         int x, int y, int width, int height,
+                                         float sliderPos,
+                                         float rotaryStartAngle,
+                                         float rotaryEndAngle,
+                                         juce::Slider& slider)
+{
+    auto bounds = juce::Rectangle<float>(x, y, width, height);
+
+    auto centre = bounds.getCentre();
+    float radius = juce::jmin(bounds.getWidth(), bounds.getHeight()) * 0.5f - 6.0f;
+
+    float angle = rotaryStartAngle + sliderPos * (rotaryEndAngle - rotaryStartAngle);
+
+    g.setColour(juce::Colours::transparentBlack);
+    g.fillEllipse(bounds);
+    juce::Colour baseColour = juce::Colours::black.withAlpha(0.9f);
+
+    g.setColour(baseColour);
+    g.fillEllipse(centre.x - radius, centre.y - radius, radius * 2.0f, radius * 2.0f);
+
+    // subtle inner shadow
+    g.setColour(juce::Colours::white.withAlpha(0.05f));
+    g.drawEllipse(centre.x - radius, centre.y - radius, radius * 2.0f, radius * 2.0f, 1.0f);
+
+    juce::Path valueArc;
+
+    float arcThickness = 3.5f;
+    float startAngle = rotaryStartAngle;
+    float endAngle = angle;
+
+    valueArc.addCentredArc(centre.x, centre.y,
+                           radius * 0.85f, radius * 0.85f,
+                           0.0f,
+                           startAngle,
+                           endAngle,
+                           true);
+
+    g.setColour(juce::Colours::orange.withAlpha(0.9f));
+    g.strokePath(valueArc, juce::PathStrokeType(arcThickness,
+                                                 juce::PathStrokeType::curved,
+                                                 juce::PathStrokeType::rounded));
+
+    // faint full arc background
+    juce::Path fullArc;
+    fullArc.addCentredArc(centre.x, centre.y,
+                          radius * 0.85f, radius * 0.85f,
+                          0.0f,
+                          rotaryStartAngle,
+                          rotaryEndAngle,
+                          true);
+
+    g.setColour(juce::Colours::white.withAlpha(0.08f));
+    g.strokePath(fullArc, juce::PathStrokeType(arcThickness));
+
+    juce::Path pointer;
+    float pointerLength = radius * 0.65f;
+    float pointerThickness = 3.0f;
+
+    pointer.addRoundedRectangle(-pointerThickness * 0.5f,
+                                -pointerLength,
+                                pointerThickness,
+                                pointerLength,
+                                2.0f);
+
+    g.setColour(juce::Colours::white.withAlpha(0.9f));
+
+    g.fillPath(pointer,
+               juce::AffineTransform::rotation(angle)
+                   .translated(centre.x, centre.y));
+
 }

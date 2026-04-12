@@ -15,6 +15,17 @@
 //==============================================================================
 /**
 */
+class CustomLookAndFeel : public juce::LookAndFeel_V4
+{
+public:
+    void drawRotarySlider(juce::Graphics& g,
+                          int x, int y, int width, int height,
+                          float sliderPos,
+                          float rotaryStartAngle,
+                          float rotaryEndAngle,
+                          juce::Slider& slider) override;
+};
+
 class StellaverbAudioProcessorEditor  : public juce::AudioProcessorEditor
 {
 public:
@@ -48,15 +59,23 @@ private:
     IRGenerator irGenerator = IRGenerator(44100.0f, 2);
     
     StellaverbAudioProcessor& audioProcessor;
-    juce::Slider length, decayTime, minDistance, maxDistance, minBrightness, maxBrightness, predelay, width, dryWet, gain, lowPassFreq, highPassFreq, colour;
-    juce::Label lengthLabel, decayTimeLabel, minDistanceLabel, maxDistanceLabel, minBrightnessLabel, maxBrightnessLabel, predelayLabel, widthLabel, dryWetLabel, gainLabel, lowPassFreqLabel, highPassFreqLabel, colourLabel;
+    juce::Slider length, decayTime, minDistance, maxDistance, minBrightness, maxBrightness, predelay, width, dryWet, gain, lowFreq, highFreq, drive;
+    juce::Label lengthLabel, decayTimeLabel, minDistanceLabel, maxDistanceLabel, minBrightnessLabel, maxBrightnessLabel, predelayLabel, widthLabel, dryWetLabel, gainLabel, lowFreqLabel, highFreqLabel, driveLabel;
     
-    std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> lengthAttachment, decayTimeAttachment, minDistanceAttachment, maxDistanceAttachment, minBrightnessAttachment, maxBrightnessAttachment, predelayAttachment, widthAttachment, dryWetAttachment, gainAttachment, lowPassFreqAttachment, highPassFreqAttachment, colourAttachment;
+    juce::ComboBox distanceScaleMode;
+    juce::Label distanceScaleModeLabel;
+    
+    std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> lengthAttachment, decayTimeAttachment, minDistanceAttachment, maxDistanceAttachment, minBrightnessAttachment, maxBrightnessAttachment, predelayAttachment, widthAttachment, dryWetAttachment, gainAttachment, lowFreqAttachment, highFreqAttachment, driveAttachment;
+    std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment> distanceScaleModeAttachment;
     
     juce::AudioFormatManager formatManager;
     juce::AudioThumbnailCache thumbnailCache { 10 };
     juce::AudioThumbnail thumbnail { 512, formatManager, thumbnailCache };
     WaveformDisplay waveformDisplay { thumbnail };
     
+    CustomLookAndFeel customLook;
+    
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (StellaverbAudioProcessorEditor)
 };
+
+

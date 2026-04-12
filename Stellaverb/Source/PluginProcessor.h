@@ -56,11 +56,16 @@ public:
     juce::AudioProcessorValueTreeState::ParameterLayout createParameterLayout();
     juce::AudioProcessorValueTreeState parameters;
 
+    // JUCE dsp modules
     juce::dsp::Convolution convolution;
     juce::dsp::Gain<float> outputGain;
     juce::dsp::DelayLine<float, juce::dsp::DelayLineInterpolationTypes::Linear> preDelayL { 192000 };
     juce::dsp::DelayLine<float, juce::dsp::DelayLineInterpolationTypes::Linear> preDelayR { 192000 };
     juce::SmoothedValue<float, juce::ValueSmoothingTypes::Linear> preDelaySmoothed;
+    using Filter = juce::dsp::IIR::Filter<float>;
+    using Coefficients = juce::dsp::IIR::Coefficients<float>;
+    juce::dsp::ProcessorDuplicator<Filter, Coefficients> lowPassFilter;
+    juce::dsp::ProcessorDuplicator<Filter, Coefficients> highPassFilter;
     
     // For loading file for testing purposes
     juce::AudioTransportSource transportSource;

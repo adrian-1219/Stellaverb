@@ -50,10 +50,7 @@ public:
         minBrightness = brightness;
     }
 
-    // ==============================
-    // Generate IR
-    // ==============================
-    void generate()
+    void generate(int distanceScaleMode)
     {
         
         impulseResponse.setSize(numChannels, irLengthSamples);
@@ -78,7 +75,18 @@ public:
             {
                 break; // Since the dataset is sorted by distance, we don't have to check any of the stars after
             }
-            const int idx = (int)((s.distance - minDistance) / (maxDistance - minDistance) * (irLengthSamples - 1));
+        
+            const float norm = (s.distance - minDistance) / (maxDistance - minDistance);
+            int idx = (int)(norm * (irLengthSamples - 1));
+                                         
+            
+//            if (distanceScaleMode == 1) // exponential mode
+//            {
+//                float gamma = 3.0f;
+//                const float mapped = std::pow(norm, gamma);
+//                idx = (int)(mapped * (irLengthSamples - 1));
+//            }
+            
             if (idx >= 0 && idx < irLengthSamples)
             {
                 float sample = s.amplitude;
@@ -112,9 +120,6 @@ public:
     
     }
 
-    // ==============================
-    // Save to WAV
-    // ==============================
     bool saveToWav(const juce::File& file)
     {
         if (!file.deleteFile())
@@ -149,9 +154,6 @@ public:
         return true;
     }
 
-    // ==============================
-    // Access buffer (for convolution)
-    // ==============================
     const juce::AudioBuffer<float>& getBuffer() const
     {
         return impulseResponse;
@@ -197,22 +199,7 @@ private:
 
     juce::AudioBuffer<float> impulseResponse;
 
-    // ==============================
-//    void applyLowpassFilter()
-//    {
-//        juce::dsp::IIR::Filter<float> filter;
-//        *filter.state = *juce::dsp::IIR::Coefficients<float>::makeLowPass(sampleRate, lowpassFreq);
-//
-//        for (int ch = 0; ch < numChannels; ++ch)
-//        {
-//            float* data = impulseResponse.getWritePointer(ch);
-//
-//            for (int i = 0; i < irLengthSamples; ++i)
-//                data[i] = filter.processSample(data[i]);
-//        }
-//    }
 
-    // ==============================
     void normalize()
     {
         float maxVal = 0.0f;

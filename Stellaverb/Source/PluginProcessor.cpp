@@ -135,6 +135,10 @@ void StellaverbAudioProcessor::prepareToPlay (double sampleRate, int samplesPerB
     preDelayL.prepare(spec);
     preDelayR.prepare(spec);
     preDelaySmoothed.reset(sampleRate, 0.05);
+    
+    // Filters
+    lowPassFilter.prepare(spec);
+    highPassFilter.prepare(spec);
 
     // Output Gain
     outputGain.prepare(spec);
@@ -159,7 +163,7 @@ void StellaverbAudioProcessor::prepareToPlay (double sampleRate, int samplesPerB
         irGenerator.setDecay(4.0f);
         irGenerator.setMaxDistance(1.0f);
 
-        irGenerator.generate();
+        irGenerator.generate(0);
 
         irGenerator.saveToWav(irFile);
     }
@@ -224,6 +228,8 @@ void StellaverbAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, j
     // the samples and the outer loop is handling the channels.
     // Alternatively, you can process the samples with the channels
     // interleaved by keeping the same state.
+    
+    // load audio file for testing
     if (readerSource != nullptr)
     {
         if (!transportSource.isPlaying())
@@ -233,15 +239,22 @@ void StellaverbAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, j
         transportSource.getNextAudioBlock(loadedFile);
     }
     
+    juce::AudioBuffer<float> dryBuffer;
+    dryBuffer.makeCopyOf(buffer);
     
     auto sampleRate = getSampleRate();
     juce::dsp::AudioBlock<float> block(buffer);
     juce::dsp::ProcessContextReplacing<float> context(block);
+    // this process block assumes stereo!!!!
     if (irReady) // only process if the IR is ready
     {
         // load parameters
         auto width = parameters.getRawParameterValue("width")->load();
         auto preDelay = parameters.getRawParameterValue("preDelay")->load();
+        auto lowFrequency = parameters.getRawParameterValue("lowFreq")->load();
+        auto highFrequency = parameters.getRawParameterValue("highFreq")->load();
+        auto drive = parameters.getRawParameterValue("drive")->load();
+        auto dryWet = parameters.getRawParameterValue("dryWet")->load();
         
         auto& block = context.getOutputBlock();
         auto numSamples = block.getNumSamples();
@@ -249,8 +262,6 @@ void StellaverbAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, j
         auto* right = block.getChannelPointer(1);
 
         preDelaySmoothed.setTargetValue(preDelay);
-        
-        outputGain.setGainLinear(1.0f);
         
         for (size_t i = 0; i < numSamples; ++i)
         {
@@ -274,8 +285,22 @@ void StellaverbAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, j
         // convolution
         convolution.process(context);
         
+        // eq
+        *highPassFilter.state = *juce::dsp::IIR::Coefficients<float>::makeHighPass(sampleRate, lowFrequency, 0.707f);
+        *lowPassFilter.state = *juce::dsp::IIR::Coefficients<float>::makeLowPass(sampleRate, highFrequency, 0.707f);
+        highPassFilter.process(context);
+        lowPassFilter.process(context);
+        
+        auto* dryL = dryBuffer.getReadPointer(0);
+        auto* dryR = dryBuffer.getReadPointer(1);
+        
         for (size_t i = 0; i < numSamples; ++i)
         {
+            // saturation
+            float saturationGainComp = 1.0f / std::sqrt(drive);
+            left[i]  = std::tanh(left[i] * drive) * saturationGainComp;
+            right[i] = std::tanh(right[i] * drive) * saturationGainComp;
+            
             // stereo widening using mid/side widening
             float L = left[i];
             float R = right[i];
@@ -285,11 +310,22 @@ void StellaverbAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, j
             
             side *= width;
             
-            float gainComp = 1.0f / juce::jmax(1.0f, width);
+            float wideningGainComp = 1.0f / juce::jmax(1.0f, width);
             
-            left[i]  = (mid + side) * gainComp;
-            right[i] = (mid - side) * gainComp;
+            left[i]  = (mid + side) * wideningGainComp;
+            right[i] = (mid - side) * wideningGainComp;
+            
+            // dry / wet
+            const float wetComp = 4.0f; // wet gain compensation since convolution is not level neutral
+            left[i] = dryL[i] * (1 - dryWet) + left[i] * dryWet * wetComp;
+            right[i] = dryR[i] * (1 - dryWet) + right[i] * dryWet * wetComp;
         }
+        
+        // output gain
+        auto gainDb = parameters.getRawParameterValue("gain")->load();
+        float gainLinear = juce::Decibels::decibelsToGain(gainDb);
+        outputGain.setGainLinear(gainLinear);
+        
         
     }
     else // mute otherwise
@@ -344,11 +380,12 @@ juce::AudioProcessorValueTreeState::ParameterLayout StellaverbAudioProcessor::cr
     parameters.push_back(std::make_unique<juce::AudioParameterFloat>(juce::ParameterID{"maxBrightness", 1}, "MaxBrightness", 0.0f, 1.0f, 1.0f));
     parameters.push_back(std::make_unique<juce::AudioParameterFloat>(juce::ParameterID{"preDelay", 1}, "Predelay", 0.0f, 200.0f, 0.0f));
     parameters.push_back(std::make_unique<juce::AudioParameterFloat>(juce::ParameterID{"width", 1}, "Width", 0.01f, 2.0f, 1.0f));
-    parameters.push_back(std::make_unique<juce::AudioParameterFloat>(juce::ParameterID{"dryWet", 1}, "Dry/Wet", 0.0f, 100.0f, 50.0f));
-    parameters.push_back(std::make_unique<juce::AudioParameterFloat>(juce::ParameterID{"gain", 1}, "Gain", 0.0f, 20.0f, 0.0f));
-    parameters.push_back(std::make_unique<juce::AudioParameterFloat>(juce::ParameterID{"lowPassFreq", 1}, "LowPassFreq", 20.0f, 20000.0f, 20000.0f));
-    parameters.push_back(std::make_unique<juce::AudioParameterFloat>(juce::ParameterID{"highPassFreq", 1}, "HighPassFreq", 20.0f, 20000.0f, 20.0f));
-    parameters.push_back(std::make_unique<juce::AudioParameterFloat>(juce::ParameterID{"colour", 1}, "Colour", -1.0f, 1.0f, 0.0f));
+    parameters.push_back(std::make_unique<juce::AudioParameterFloat>(juce::ParameterID{"dryWet", 1}, "Dry/Wet", 0.0f, 1.0f, 0.5f));
+    parameters.push_back(std::make_unique<juce::AudioParameterFloat>(juce::ParameterID{"gain", 1}, "Gain", -24.0f, 12.0f, 0.0f));
+    parameters.push_back(std::make_unique<juce::AudioParameterFloat>(juce::ParameterID{"lowFreq", 1}, "LowFreq", 20.0f, 500.0f, 20.0f));
+    parameters.push_back(std::make_unique<juce::AudioParameterFloat>(juce::ParameterID{"highFreq", 1}, "HighFreq", 2000.0f, 20000.0f, 20000.0f));
+    parameters.push_back(std::make_unique<juce::AudioParameterFloat>(juce::ParameterID{"drive", 1}, "Drive", 1.0f, 15.0f, 1.0f));
+    parameters.push_back(std::make_unique<juce::AudioParameterChoice>(juce::ParameterID{"scaleMode", 1}, "Distance Scale Mode", juce::StringArray{"Linear", "Logarithmic"}, 0));
     
     return {parameters.begin(), parameters.end()};
 }
