@@ -120,15 +120,22 @@ void StellaverbAudioProcessor::prepareToPlay (double sampleRate, int samplesPerB
     }
     transportSource.prepareToPlay(samplesPerBlock, sampleRate);
         
-    
-    // Convolution
+    // Set up dsp module
     juce::dsp::ProcessSpec spec;
     spec.sampleRate = sampleRate;
     spec.maximumBlockSize = samplesPerBlock;
     spec.numChannels = getTotalNumOutputChannels();
     
+    // Convolution
     convolution.prepare(spec);
-    
+        
+    // Pre delay
+    preDelayL.reset();
+    preDelayR.reset();
+    preDelayL.prepare(spec);
+    preDelayR.prepare(spec);
+    preDelaySmoothed.reset(sampleRate, 0.05);
+
     // Output Gain
     outputGain.prepare(spec);
     outputGain.setGainLinear(0.0f);
@@ -226,43 +233,63 @@ void StellaverbAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, j
         transportSource.getNextAudioBlock(loadedFile);
     }
     
+    
+    auto sampleRate = getSampleRate();
     juce::dsp::AudioBlock<float> block(buffer);
     juce::dsp::ProcessContextReplacing<float> context(block);
     if (irReady) // only process if the IR is ready
     {
-        outputGain.setGainLinear(1.0f);
-        convolution.process(context);
-        
         // load parameters
         auto width = parameters.getRawParameterValue("width")->load();
+        auto preDelay = parameters.getRawParameterValue("preDelay")->load();
         
         auto& block = context.getOutputBlock();
-        auto numChannels = block.getNumChannels();
         auto numSamples = block.getNumSamples();
+        auto* left  = block.getChannelPointer(0);
+        auto* right = block.getChannelPointer(1);
+
+        preDelaySmoothed.setTargetValue(preDelay);
         
-        // stereo widening if stereo using simple mid/side widening
-        if (numChannels == 2) {
-            auto* left  = block.getChannelPointer(0);
-            auto* right = block.getChannelPointer(1);
-            for (size_t i = 0; i < numSamples; ++i)
-            {
-                float L = left[i];
-                float R = right[i];
-                
-                float mid  = 0.5f * (L + R);
-                float side = 0.5f * (L - R);
-                
-                side *= width;
-                
-                float gainComp = 1.0f / juce::jmax(1.0f, width);
-                
-                left[i]  = (mid + side) * gainComp;
-                right[i] = (mid - side) * gainComp;
-            }
+        outputGain.setGainLinear(1.0f);
+        
+        for (size_t i = 0; i < numSamples; ++i)
+        {
+            // pre delay (with smoothing to prevent clicks when changing parameter)
+            float smoothedPreDelay = preDelaySmoothed.getNextValue();
+            float preDelaySamples = smoothedPreDelay * 0.001f * (float) sampleRate;
+            preDelayL.setDelay(preDelaySamples);
+            preDelayR.setDelay(preDelaySamples);
+            
+            
+            float inL = left[i];
+            float inR = right[i];
+            
+            preDelayL.pushSample(0, inL);
+            preDelayR.pushSample(0, inR);
+            
+            left[i]  = preDelayL.popSample(0);
+            right[i] = preDelayR.popSample(0);
         }
         
+        // convolution
+        convolution.process(context);
         
-        
+        for (size_t i = 0; i < numSamples; ++i)
+        {
+            // stereo widening using mid/side widening
+            float L = left[i];
+            float R = right[i];
+            
+            float mid  = 0.5f * (L + R);
+            float side = 0.5f * (L - R);
+            
+            side *= width;
+            
+            float gainComp = 1.0f / juce::jmax(1.0f, width);
+            
+            left[i]  = (mid + side) * gainComp;
+            right[i] = (mid - side) * gainComp;
+        }
         
     }
     else // mute otherwise
@@ -315,7 +342,7 @@ juce::AudioProcessorValueTreeState::ParameterLayout StellaverbAudioProcessor::cr
     parameters.push_back(std::make_unique<juce::AudioParameterFloat>(juce::ParameterID{"maxDistance", 1}, "MaxDistance", 0.5f, 7.0f, 7.0f));
     parameters.push_back(std::make_unique<juce::AudioParameterFloat>(juce::ParameterID{"minBrightness", 1}, "MinBrightness", 0.0f, 1.0f, 0.0f));
     parameters.push_back(std::make_unique<juce::AudioParameterFloat>(juce::ParameterID{"maxBrightness", 1}, "MaxBrightness", 0.0f, 1.0f, 1.0f));
-    parameters.push_back(std::make_unique<juce::AudioParameterFloat>(juce::ParameterID{"predelay", 1}, "Predelay", 0.0f, 200.0f, 0.0f));
+    parameters.push_back(std::make_unique<juce::AudioParameterFloat>(juce::ParameterID{"preDelay", 1}, "Predelay", 0.0f, 200.0f, 0.0f));
     parameters.push_back(std::make_unique<juce::AudioParameterFloat>(juce::ParameterID{"width", 1}, "Width", 0.01f, 2.0f, 1.0f));
     parameters.push_back(std::make_unique<juce::AudioParameterFloat>(juce::ParameterID{"dryWet", 1}, "Dry/Wet", 0.0f, 100.0f, 50.0f));
     parameters.push_back(std::make_unique<juce::AudioParameterFloat>(juce::ParameterID{"gain", 1}, "Gain", 0.0f, 20.0f, 0.0f));

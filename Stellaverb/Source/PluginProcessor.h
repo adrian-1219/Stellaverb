@@ -58,6 +58,9 @@ public:
 
     juce::dsp::Convolution convolution;
     juce::dsp::Gain<float> outputGain;
+    juce::dsp::DelayLine<float, juce::dsp::DelayLineInterpolationTypes::Linear> preDelayL { 192000 };
+    juce::dsp::DelayLine<float, juce::dsp::DelayLineInterpolationTypes::Linear> preDelayR { 192000 };
+    juce::SmoothedValue<float, juce::ValueSmoothingTypes::Linear> preDelaySmoothed;
     
     // For loading file for testing purposes
     juce::AudioTransportSource transportSource;
