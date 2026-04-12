@@ -40,6 +40,15 @@ public:
     {
         minDistance = distance;
     }
+    void setMaxBrightness(float brightness)
+    {
+        maxBrightness = brightness;
+    }
+    
+    void setMinBrightness(float brightness)
+    {
+        minBrightness = brightness;
+    }
 
     // ==============================
     // Generate IR
@@ -62,7 +71,7 @@ public:
         
         for (const auto& s : stars)
         {
-            if (s.distance < minDistance) {
+            if (s.distance < minDistance or s.amplitude < minBrightness or s.amplitude > maxBrightness) {
                 continue;
             }
             if (s.distance > maxDistance)
@@ -100,15 +109,7 @@ public:
 //        addEarlyReflections();
 //        applyLowpassFilter();
         normalize();
-        
-        DBG("first 100 samples L/R diff:");
-
-        for (int i = 0; i < 100; ++i)
-        {
-            DBG(juce::String(i) + ": "
-                + juce::String(left[i]) + " / "
-                + juce::String(right[i]));
-        }
+    
     }
 
     // ==============================
@@ -187,11 +188,12 @@ private:
 
     
     // default parameters
+    // use all stars as default
     float decay = 3.0f;
-    float maxDistance = 1.0f; // use all stars
-    float minDistance = 0.0f; // use all stars
-    float lowpassFreq = 6000.0f;
-    float speed = 200.0f;
+    float maxDistance = 1.0f;
+    float minDistance = 0.0f;
+    float maxBrightness = 1.0f;
+    float minBrightness = 0.0f;
 
     juce::AudioBuffer<float> impulseResponse;
 

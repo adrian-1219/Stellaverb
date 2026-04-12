@@ -27,6 +27,8 @@ StellaverbAudioProcessorEditor::StellaverbAudioProcessorEditor (StellaverbAudioP
         auto decayTime = audioProcessor.parameters.getRawParameterValue("decayTime")->load();
         auto minDistance = audioProcessor.parameters.getRawParameterValue("minDistance")->load();
         auto maxDistance = audioProcessor.parameters.getRawParameterValue("maxDistance")->load();
+        auto minBrightness = audioProcessor.parameters.getRawParameterValue("minBrightness")->load();
+        auto maxBrightness = audioProcessor.parameters.getRawParameterValue("maxBrightness")->load();
         minDistance = minDistance / 7.0f;
         maxDistance = maxDistance / 7.0f; // scale from parsecs to 0 to 1
         
@@ -39,6 +41,8 @@ StellaverbAudioProcessorEditor::StellaverbAudioProcessorEditor (StellaverbAudioP
         irGenerator.setDecay(decayTime);
         irGenerator.setMinDistance(minDistance);
         irGenerator.setMaxDistance(maxDistance);
+        irGenerator.setMinBrightness(minBrightness);
+        irGenerator.setMaxBrightness(maxBrightness);
 
         irGenerator.generate();
 
@@ -63,8 +67,8 @@ StellaverbAudioProcessorEditor::StellaverbAudioProcessorEditor (StellaverbAudioP
         audioProcessor.prepareToPlay(audioProcessor.getSampleRate(), audioProcessor.getBlockSize());
     };
     
-    auto sliders = { &length, &decayTime, &minDistance, &maxDistance};
-    auto labels  = { &lengthLabel, &decayTimeLabel, &minDistanceLabel, &maxDistanceLabel};
+    auto sliders = { &length, &decayTime, &minDistance, &maxDistance, &minBrightness, &maxBrightness, &predelay, &width, &dryWet, &gain, &lowPassFreq, &highPassFreq, &colour};
+    auto labels  = { &lengthLabel, &decayTimeLabel, &minDistanceLabel, &maxDistanceLabel, &minBrightnessLabel, &maxBrightnessLabel, &predelayLabel, &widthLabel, &dryWetLabel, &gainLabel, &lowPassFreqLabel, &highPassFreqLabel, &colourLabel};
     for (auto* slider : sliders)
     {
         addAndMakeVisible (slider);
@@ -90,14 +94,50 @@ StellaverbAudioProcessorEditor::StellaverbAudioProcessorEditor (StellaverbAudioP
     maxDistanceLabel.setText ("Max Distance", juce::dontSendNotification);
     maxDistanceLabel.attachToComponent (&maxDistance, false);
     
+    minBrightnessLabel.setText ("Min Brightness", juce::dontSendNotification);
+    minBrightnessLabel.attachToComponent (&minBrightness, false);
+    
+    maxBrightnessLabel.setText ("Max Brightness", juce::dontSendNotification);
+    maxBrightnessLabel.attachToComponent (&maxBrightness, false);
+    
+    predelayLabel.setText ("Pre-delay", juce::dontSendNotification);
+    predelayLabel.attachToComponent (&predelay, false);
+    
+    widthLabel.setText ("Width", juce::dontSendNotification);
+    widthLabel.attachToComponent (&width, false);
+    
+    dryWetLabel.setText ("Dry/Wet", juce::dontSendNotification);
+    dryWetLabel.attachToComponent (&dryWet, false);
+
+    gainLabel.setText ("Gain", juce::dontSendNotification);
+    gainLabel.attachToComponent (&gain, false);
+
+    lowPassFreqLabel.setText ("Low Pass", juce::dontSendNotification);
+    lowPassFreqLabel.attachToComponent (&lowPassFreq, false);
+
+    highPassFreqLabel.setText ("High Pass", juce::dontSendNotification);
+    highPassFreqLabel.attachToComponent (&highPassFreq, false);
+
+    colourLabel.setText ("Colour", juce::dontSendNotification);
+    colourLabel.attachToComponent (&colour, false);
+    
     lengthAttachment = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(audioProcessor.parameters,"length", length);
     decayTimeAttachment = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(audioProcessor.parameters, "decayTime", decayTime);
     minDistanceAttachment = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(audioProcessor.parameters, "minDistance", minDistance);
     maxDistanceAttachment = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(audioProcessor.parameters, "maxDistance", maxDistance);
+    minBrightnessAttachment = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(audioProcessor.parameters, "minBrightness", minBrightness);
+    maxBrightnessAttachment = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(audioProcessor.parameters, "maxBrightness", maxBrightness);
+    predelayAttachment = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(audioProcessor.parameters, "predelay", predelay);
+    widthAttachment = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(audioProcessor.parameters, "width", width);
+    dryWetAttachment = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(audioProcessor.parameters, "dryWet", dryWet);
+    gainAttachment = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(audioProcessor.parameters, "gain", gain);
+    lowPassFreqAttachment = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(audioProcessor.parameters, "lowPassFreq", lowPassFreq);
+    highPassFreqAttachment = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(audioProcessor.parameters, "highPassFreq", highPassFreq);
+    colourAttachment = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(audioProcessor.parameters, "colour", colour);
     
     // Make sure that before the constructor has finished, you've set the
     // editor's size to whatever you need it to be.
-    setSize (600, 400);
+    setSize (900, 550);
 }
 
 StellaverbAudioProcessorEditor::~StellaverbAudioProcessorEditor()
@@ -124,20 +164,44 @@ void StellaverbAudioProcessorEditor::resized()
     int padding = 20;
     int y = 80;
     
-    // Center the sliders
-    int totalWidth = (sliderWidth * 4) + (padding * 3);
-    int startX = (getWidth() - totalWidth) / 2;
-    int x = startX;
+    // Center the sliders (top row - 6 options)
+    int totalWidthTop = (sliderWidth * 6) + (padding * 5);
+    int startX1 = (getWidth() - totalWidthTop) / 2;
+    int x1 = startX1;
     
-    length.setBounds(x, y, sliderWidth, sliderHeight);
-    x += sliderWidth + padding;
-    decayTime.setBounds(x, y, sliderWidth, sliderHeight);
-    x += sliderWidth + padding;
-    minDistance.setBounds(x, y, sliderWidth, sliderHeight);
-    x += sliderWidth + padding;
-    maxDistance.setBounds(x, y, sliderWidth, sliderHeight);
+    length.setBounds(x1, y, sliderWidth, sliderHeight);
+    x1 += sliderWidth + padding;
+    decayTime.setBounds(x1, y, sliderWidth, sliderHeight);
+    x1 += sliderWidth + padding;
+    minDistance.setBounds(x1, y, sliderWidth, sliderHeight);
+    x1 += sliderWidth + padding;
+    maxDistance.setBounds(x1, y, sliderWidth, sliderHeight);
+    x1 += sliderWidth + padding;
+    minBrightness.setBounds(x1, y, sliderWidth, sliderHeight);
+    x1 += sliderWidth + padding;
+    maxBrightness.setBounds(x1, y, sliderWidth, sliderHeight);
     
-    // Place waveform display below sliders
+    // Center the sliders (bottom row - 7 options)
+    int bottomRowY = getHeight() - sliderHeight - 20;
+    int totalWidthBottom = (sliderWidth * 7) + (padding * 6);
+    int startX2 = (getWidth() - totalWidthBottom) / 2;
+    int x2 = startX2;
+    
+    predelay.setBounds(x2, bottomRowY, sliderWidth, sliderHeight);
+    x2 += sliderWidth + padding;
+    width.setBounds(x2, bottomRowY, sliderWidth, sliderHeight);
+    x2 += sliderWidth + padding;
+    lowPassFreq.setBounds(x2, bottomRowY, sliderWidth, sliderHeight);
+    x2 += sliderWidth + padding;
+    highPassFreq.setBounds(x2, bottomRowY, sliderWidth, sliderHeight);
+    x2 += sliderWidth + padding;
+    colour.setBounds(x2, bottomRowY, sliderWidth, sliderHeight);
+    x2 += sliderWidth + padding;
+    dryWet.setBounds(x2, bottomRowY, sliderWidth, sliderHeight);
+    x2 += sliderWidth + padding;
+    gain.setBounds(x2, bottomRowY, sliderWidth, sliderHeight);
+
+    // Place waveform display below sliders and above bottom row
     int waveformY = y + sliderHeight + padding + 20;
-    waveformDisplay.setBounds(20, waveformY, getWidth() - 40, getHeight() - waveformY - 20);
+    waveformDisplay.setBounds(20, waveformY, getWidth() - 40, bottomRowY - waveformY - 20);
 }

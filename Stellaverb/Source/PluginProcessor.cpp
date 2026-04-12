@@ -109,7 +109,7 @@ void StellaverbAudioProcessor::prepareToPlay (double sampleRate, int samplesPerB
     if (reader != nullptr) // if the reader is not empty
     {
         DBG("File Loaded Successfully: " << file.getFileName());
-        auto newSource = std::make_unique<juce::AudioFormatReaderSource>(reader, true); 
+        auto newSource = std::make_unique<juce::AudioFormatReaderSource>(reader, true);
         transportSource.setSource(newSource.get(), 0, nullptr, reader->sampleRate);
         readerSource.swap(newSource);
         transportSource.start();
@@ -228,12 +228,44 @@ void StellaverbAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, j
     
     juce::dsp::AudioBlock<float> block(buffer);
     juce::dsp::ProcessContextReplacing<float> context(block);
-    if (irReady)
+    if (irReady) // only process if the IR is ready
     {
         outputGain.setGainLinear(1.0f);
         convolution.process(context);
+        
+        // load parameters
+        auto width = parameters.getRawParameterValue("width")->load();
+        
+        auto& block = context.getOutputBlock();
+        auto numChannels = block.getNumChannels();
+        auto numSamples = block.getNumSamples();
+        
+        // stereo widening if stereo using simple mid/side widening
+        if (numChannels == 2) {
+            auto* left  = block.getChannelPointer(0);
+            auto* right = block.getChannelPointer(1);
+            for (size_t i = 0; i < numSamples; ++i)
+            {
+                float L = left[i];
+                float R = right[i];
+                
+                float mid  = 0.5f * (L + R);
+                float side = 0.5f * (L - R);
+                
+                side *= width;
+                
+                float gainComp = 1.0f / juce::jmax(1.0f, width);
+                
+                left[i]  = (mid + side) * gainComp;
+                right[i] = (mid - side) * gainComp;
+            }
+        }
+        
+        
+        
+        
     }
-    else
+    else // mute otherwise
     {
         outputGain.setGainLinear(0.0f);
     }
@@ -281,9 +313,15 @@ juce::AudioProcessorValueTreeState::ParameterLayout StellaverbAudioProcessor::cr
     parameters.push_back(std::make_unique<juce::AudioParameterFloat>(juce::ParameterID{"decayTime", 1}, "DecayTime", 0.05f, 10.0f, 1.0f));
     parameters.push_back(std::make_unique<juce::AudioParameterFloat>(juce::ParameterID{"minDistance", 1}, "MinDistance", 0.0f, 6.5f, 0.0f));
     parameters.push_back(std::make_unique<juce::AudioParameterFloat>(juce::ParameterID{"maxDistance", 1}, "MaxDistance", 0.5f, 7.0f, 7.0f));
+    parameters.push_back(std::make_unique<juce::AudioParameterFloat>(juce::ParameterID{"minBrightness", 1}, "MinBrightness", 0.0f, 1.0f, 0.0f));
+    parameters.push_back(std::make_unique<juce::AudioParameterFloat>(juce::ParameterID{"maxBrightness", 1}, "MaxBrightness", 0.0f, 1.0f, 1.0f));
+    parameters.push_back(std::make_unique<juce::AudioParameterFloat>(juce::ParameterID{"predelay", 1}, "Predelay", 0.0f, 200.0f, 0.0f));
+    parameters.push_back(std::make_unique<juce::AudioParameterFloat>(juce::ParameterID{"width", 1}, "Width", 0.01f, 2.0f, 1.0f));
+    parameters.push_back(std::make_unique<juce::AudioParameterFloat>(juce::ParameterID{"dryWet", 1}, "Dry/Wet", 0.0f, 100.0f, 50.0f));
     parameters.push_back(std::make_unique<juce::AudioParameterFloat>(juce::ParameterID{"gain", 1}, "Gain", 0.0f, 20.0f, 0.0f));
-    
-    
+    parameters.push_back(std::make_unique<juce::AudioParameterFloat>(juce::ParameterID{"lowPassFreq", 1}, "LowPassFreq", 20.0f, 20000.0f, 20000.0f));
+    parameters.push_back(std::make_unique<juce::AudioParameterFloat>(juce::ParameterID{"highPassFreq", 1}, "HighPassFreq", 20.0f, 20000.0f, 20.0f));
+    parameters.push_back(std::make_unique<juce::AudioParameterFloat>(juce::ParameterID{"colour", 1}, "Colour", -1.0f, 1.0f, 0.0f));
     
     return {parameters.begin(), parameters.end()};
 }

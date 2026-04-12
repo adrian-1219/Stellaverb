@@ -48,10 +48,10 @@ private:
     IRGenerator irGenerator = IRGenerator(44100.0f, 2);
     
     StellaverbAudioProcessor& audioProcessor;
-    juce::Slider length, decayTime, minDistance, maxDistance;
-    juce::Label lengthLabel, decayTimeLabel, minDistanceLabel, maxDistanceLabel;
+    juce::Slider length, decayTime, minDistance, maxDistance, minBrightness, maxBrightness, predelay, width, dryWet, gain, lowPassFreq, highPassFreq, colour;
+    juce::Label lengthLabel, decayTimeLabel, minDistanceLabel, maxDistanceLabel, minBrightnessLabel, maxBrightnessLabel, predelayLabel, widthLabel, dryWetLabel, gainLabel, lowPassFreqLabel, highPassFreqLabel, colourLabel;
     
-    std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> lengthAttachment, decayTimeAttachment, minDistanceAttachment, maxDistanceAttachment;
+    std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> lengthAttachment, decayTimeAttachment, minDistanceAttachment, maxDistanceAttachment, minBrightnessAttachment, maxBrightnessAttachment, predelayAttachment, widthAttachment, dryWetAttachment, gainAttachment, lowPassFreqAttachment, highPassFreqAttachment, colourAttachment;
     
     juce::AudioFormatManager formatManager;
     juce::AudioThumbnailCache thumbnailCache { 10 };

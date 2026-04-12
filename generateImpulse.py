@@ -64,7 +64,7 @@ for row in tbl:
     # if not np.isnan(value):
     index = int(scale(row['distance_pc'], min_distance, max_distance, 0, irLenSamples - 1))
 
-    # TODO: map to stereo and make it so that it adds and not ben
+    # TODO: map to stereo and make it so that it adds 
     irBuffer[index] += row['phot_g_mean_flux']
 
 max_sample_value = irBuffer.max()
