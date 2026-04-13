@@ -16,7 +16,7 @@ StellaverbAudioProcessorEditor::StellaverbAudioProcessorEditor (StellaverbAudioP
 {
     formatManager.registerBasicFormats();
     
-    customLook.setColour(juce::ResizableWindow::backgroundColourId, juce::Colours::whitesmoke);
+    customLook.setColour(juce::ResizableWindow::backgroundColourId, juce::Colour(0xfffff8e1));
     
     customLook.setColour(juce::Slider::textBoxTextColourId, juce::Colours::black.withAlpha(0.8f));
     customLook.setColour(juce::Slider::textBoxOutlineColourId, juce::Colours::transparentBlack);
