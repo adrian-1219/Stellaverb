@@ -61,9 +61,7 @@ private:
     StellaverbAudioProcessor& audioProcessor;
     juce::Slider length, decayTime, minDistance, maxDistance, minBrightness, maxBrightness, predelay, width, dryWet, gain, lowFreq, highFreq, drive;
     juce::Label lengthLabel, decayTimeLabel, minDistanceLabel, maxDistanceLabel, minBrightnessLabel, maxBrightnessLabel, predelayLabel, widthLabel, dryWetLabel, gainLabel, lowFreqLabel, highFreqLabel, driveLabel;
-    
-    juce::ComboBox distanceScaleMode;
-    juce::Label distanceScaleModeLabel;
+
     
     std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> lengthAttachment, decayTimeAttachment, minDistanceAttachment, maxDistanceAttachment, minBrightnessAttachment, maxBrightnessAttachment, predelayAttachment, widthAttachment, dryWetAttachment, gainAttachment, lowFreqAttachment, highFreqAttachment, driveAttachment;
     std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment> distanceScaleModeAttachment;

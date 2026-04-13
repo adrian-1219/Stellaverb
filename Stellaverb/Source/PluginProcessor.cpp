@@ -136,10 +136,6 @@ void StellaverbAudioProcessor::prepareToPlay (double sampleRate, int samplesPerB
     {
         DBG("IR file not found, generating new one...");
         IRGenerator irGenerator = IRGenerator(44100.0f, 2);
-        irGenerator.setLengthSeconds(2.5f);
-        irGenerator.setDecay(4.0f);
-        irGenerator.setMaxDistance(1.0f);
-
         irGenerator.generate(0);
 
         irGenerator.saveToWav(irFile);

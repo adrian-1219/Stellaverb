@@ -15,9 +15,32 @@ StellaverbAudioProcessorEditor::StellaverbAudioProcessorEditor (StellaverbAudioP
     : AudioProcessorEditor (&p), audioProcessor (p)
 {
     formatManager.registerBasicFormats();
-
-    addAndMakeVisible(waveformDisplay);
     
+    customLook.setColour(juce::ResizableWindow::backgroundColourId, juce::Colours::whitesmoke);
+    
+    customLook.setColour(juce::Slider::textBoxTextColourId, juce::Colours::black.withAlpha(0.8f));
+    customLook.setColour(juce::Slider::textBoxOutlineColourId, juce::Colours::transparentBlack);
+    
+    customLook.setColour(juce::Label::textColourId, juce::Colours::black.withAlpha(0.9f));
+    
+    customLook.setColour(juce::TextButton::buttonColourId, juce::Colour(0xff1f1f1f));
+    customLook.setColour(juce::TextButton::buttonOnColourId, juce::Colours::orange);
+    customLook.setColour(juce::TextButton::textColourOffId, juce::Colours::white);
+    customLook.setColour(juce::TextButton::textColourOnId, juce::Colours::white);
+    
+    setLookAndFeel(&customLook);
+
+    juce::File file = juce::File::getSpecialLocation(juce::File::userApplicationDataDirectory)
+        .getChildFile("Stellaverb")
+        .getChildFile("generated_ir.wav");
+    
+    // Load the generated IR file into the thumbnail
+    thumbnail.setSource(nullptr);
+    thumbnail.clear();
+    
+    thumbnail.setSource(new juce::FileInputSource(file));
+    
+    addAndMakeVisible(waveformDisplay);
     addAndMakeVisible(generateButton);
     generateButton.onClick = [this]()
     {
@@ -46,7 +69,7 @@ StellaverbAudioProcessorEditor::StellaverbAudioProcessorEditor (StellaverbAudioP
         irGenerator.setMaxBrightness(maxBrightness);
 
         irGenerator.generate(distanceScaleMode);
-
+        
         juce::File file = juce::File::getSpecialLocation(juce::File::userApplicationDataDirectory)
             .getChildFile("Stellaverb")
             .getChildFile("generated_ir.wav");
@@ -56,8 +79,9 @@ StellaverbAudioProcessorEditor::StellaverbAudioProcessorEditor (StellaverbAudioP
         // Load the generated IR file into the thumbnail
         thumbnail.setSource(nullptr);
         thumbnail.clear();
-
+        
         thumbnail.setSource(new juce::FileInputSource(file));
+
         
         DBG(thumbnail.getTotalLength());
         
@@ -82,6 +106,7 @@ StellaverbAudioProcessorEditor::StellaverbAudioProcessorEditor (StellaverbAudioP
         addAndMakeVisible (label);
         label->setJustificationType (juce::Justification::centred);
         label->setBorderSize(juce::BorderSize<int>(0));
+        label->setLookAndFeel(&customLook);
     }
     
     lengthLabel.setText ("Length", juce::dontSendNotification);
@@ -122,14 +147,7 @@ StellaverbAudioProcessorEditor::StellaverbAudioProcessorEditor (StellaverbAudioP
 
     driveLabel.setText ("Drive", juce::dontSendNotification);
     driveLabel.attachToComponent (&drive, false);
-    
-//    addAndMakeVisible(distanceScaleMode);
-//    distanceScaleMode.addItem("Linear", 1);
-//    distanceScaleMode.addItem("Logarithmic", 2);
-    
-    addAndMakeVisible(distanceScaleModeLabel);
-    distanceScaleModeLabel.setText("Distance Scale Mode", juce::dontSendNotification);
-    distanceScaleModeLabel.attachToComponent(&distanceScaleMode, true);
+
     
     lengthAttachment = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(audioProcessor.parameters,"length", length);
     decayTimeAttachment = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(audioProcessor.parameters, "decayTime", decayTime);
@@ -144,8 +162,7 @@ StellaverbAudioProcessorEditor::StellaverbAudioProcessorEditor (StellaverbAudioP
     lowFreqAttachment = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(audioProcessor.parameters, "lowFreq", lowFreq);
     highFreqAttachment = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(audioProcessor.parameters, "highFreq", highFreq);
     driveAttachment = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(audioProcessor.parameters, "drive", drive);
-    
-    distanceScaleModeAttachment = std::make_unique<juce::AudioProcessorValueTreeState::ComboBoxAttachment>(audioProcessor.parameters, "scaleMode", distanceScaleMode);
+
     
     // Make sure that before the constructor has finished, you've set the
     // editor's size to whatever you need it to be.
@@ -154,10 +171,17 @@ StellaverbAudioProcessorEditor::StellaverbAudioProcessorEditor (StellaverbAudioP
 
 StellaverbAudioProcessorEditor::~StellaverbAudioProcessorEditor()
 {
+    setLookAndFeel(nullptr);
     auto sliders = { &length, &decayTime, &minDistance, &maxDistance, &minBrightness, &maxBrightness, &predelay, &width, &dryWet, &gain, &lowFreq, &highFreq, &drive};
     for (auto* slider : sliders)
     {
         slider->setLookAndFeel(nullptr);
+    }
+    
+    auto labels  = { &lengthLabel, &decayTimeLabel, &minDistanceLabel, &maxDistanceLabel, &minBrightnessLabel, &maxBrightnessLabel, &predelayLabel, &widthLabel, &dryWetLabel, &gainLabel, &lowFreqLabel, &highFreqLabel, &driveLabel};
+    for (auto* label : labels)
+    {
+        label->setLookAndFeel(nullptr);
     }
     
 }
@@ -167,6 +191,10 @@ void StellaverbAudioProcessorEditor::paint (juce::Graphics& g)
 {
     // (Our component is opaque, so we must completely fill the background with a solid colour)
     g.fillAll (getLookAndFeel().findColour (juce::ResizableWindow::backgroundColourId));
+
+    g.setColour (juce::Colours::orange.withAlpha(0.9f));
+    g.setFont (juce::FontOptions (36.0f, juce::Font::bold));
+    g.drawText ("Stellaverb", 0, 20, getWidth(), 40, juce::Justification::centred, true);
 
     g.setColour (juce::Colours::white);
     g.setFont (juce::FontOptions (15.0f));
@@ -180,13 +208,7 @@ void StellaverbAudioProcessorEditor::resized()
     int sliderWidth = 100;
     int sliderHeight = 100;
     int padding = 20;
-    int y = 80;
-    
-    // Generate IR button
-    generateButton.setBounds(600, 20, 150, 40);
-    
-    // Distance Scale Mode
-    distanceScaleMode.setBounds(250, 30, 200, 20);
+    int y = 90;
     
     // Center the sliders (top row - 6 options)
     int totalWidthTop = (sliderWidth * 6) + (padding * 5);
@@ -205,6 +227,12 @@ void StellaverbAudioProcessorEditor::resized()
     x1 += sliderWidth + padding;
     maxBrightness.setBounds(x1, y, sliderWidth, sliderHeight);
     
+    // Generate IR button
+    int btnWidth = 200;
+    int btnHeight = 35;
+    int btnY = y + sliderHeight + 10;
+    generateButton.setBounds((getWidth() - btnWidth) / 2, btnY, btnWidth, btnHeight);
+    
     // Center the sliders (bottom row - 7 options)
     int bottomRowY = getHeight() - sliderHeight - 20;
     int totalWidthBottom = (sliderWidth * 7) + (padding * 6);
@@ -213,21 +241,21 @@ void StellaverbAudioProcessorEditor::resized()
     
     predelay.setBounds(x2, bottomRowY, sliderWidth, sliderHeight);
     x2 += sliderWidth + padding;
-    width.setBounds(x2, bottomRowY, sliderWidth, sliderHeight);
-    x2 += sliderWidth + padding;
     lowFreq.setBounds(x2, bottomRowY, sliderWidth, sliderHeight);
     x2 += sliderWidth + padding;
     highFreq.setBounds(x2, bottomRowY, sliderWidth, sliderHeight);
     x2 += sliderWidth + padding;
     drive.setBounds(x2, bottomRowY, sliderWidth, sliderHeight);
     x2 += sliderWidth + padding;
+    width.setBounds(x2, bottomRowY, sliderWidth, sliderHeight);
+    x2 += sliderWidth + padding;
     dryWet.setBounds(x2, bottomRowY, sliderWidth, sliderHeight);
     x2 += sliderWidth + padding;
     gain.setBounds(x2, bottomRowY, sliderWidth, sliderHeight);
 
     // Place waveform display below sliders and above bottom row
-    int waveformY = y + sliderHeight + padding + 20;
-    waveformDisplay.setBounds(20, waveformY, getWidth() - 40, bottomRowY - waveformY - 20);
+    int waveformY = btnY + btnHeight + padding;
+    waveformDisplay.setBounds(20, waveformY, getWidth() - 40, bottomRowY - waveformY - 40);
 }
 
 void CustomLookAndFeel::drawRotarySlider(juce::Graphics& g,

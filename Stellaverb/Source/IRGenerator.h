@@ -183,13 +183,13 @@ public:
 private:
     double sampleRate = 44100.0;
     int numChannels = 2;
-    int irLengthSamples = 44100 * 2;
+    int irLengthSamples = 44100 * 1.0f;
 
     
     // default parameters
     // use all stars as default
-    float decay = 3.0f;
-    float maxDistance = 1.0f;
+    float decay = 1.0f;
+    float maxDistance = 7.0f;
     float minDistance = 0.0f;
     float maxBrightness = 1.0f;
     float minBrightness = 0.0f;
