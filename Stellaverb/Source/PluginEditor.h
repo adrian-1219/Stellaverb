@@ -44,7 +44,7 @@ private:
         void paint(juce::Graphics& g) override
         {
             g.fillAll(juce::Colours::black);
-            g.setColour(juce::Colours::white);
+            g.setColour(juce::Colour(0xfffff8e1));
             if (thumbnail.getNumChannels() > 0)
                 thumbnail.drawChannels(g, getLocalBounds(), 0.0, thumbnail.getTotalLength(), 1.0f);
             else

@@ -50,7 +50,7 @@ public:
         minBrightness = brightness;
     }
 
-    void generate(int distanceScaleMode)
+    void generate()
     {
         
         impulseResponse.setSize(numChannels, irLengthSamples);
@@ -78,14 +78,6 @@ public:
         
             const float norm = (s.distance - minDistance) / (maxDistance - minDistance);
             int idx = (int)(norm * (irLengthSamples - 1));
-                                         
-            
-//            if (distanceScaleMode == 1) // exponential mode
-//            {
-//                float gamma = 3.0f;
-//                const float mapped = std::pow(norm, gamma);
-//                idx = (int)(mapped * (irLengthSamples - 1));
-//            }
             
             if (idx >= 0 && idx < irLengthSamples)
             {
@@ -171,11 +163,8 @@ public:
     {
         const void* rawData = BinaryData::stars_sorted_bin;
         size_t dataSize = BinaryData::stars_sorted_binSize;
-
         size_t count = dataSize / sizeof(Star);
-
         stars.resize(count);
-
         std::memcpy(stars.data(), rawData, dataSize);
     }
 

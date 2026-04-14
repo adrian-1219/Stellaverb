@@ -52,9 +52,6 @@ StellaverbAudioProcessorEditor::StellaverbAudioProcessorEditor (StellaverbAudioP
         auto maxDistance = audioProcessor.parameters.getRawParameterValue("maxDistance")->load();
         auto minBrightness = audioProcessor.parameters.getRawParameterValue("minBrightness")->load();
         auto maxBrightness = audioProcessor.parameters.getRawParameterValue("maxBrightness")->load();
-        auto distanceScaleMode = audioProcessor.parameters.getRawParameterValue("scaleMode")->load();
-        minDistance = minDistance / 7.0f;
-        maxDistance = maxDistance / 7.0f; // scale from parsecs to 0 to 1
         
         DBG("length: " + juce::String(length)
             + ", decayTime: " + juce::String(decayTime)
@@ -68,7 +65,7 @@ StellaverbAudioProcessorEditor::StellaverbAudioProcessorEditor (StellaverbAudioP
         irGenerator.setMinBrightness(minBrightness);
         irGenerator.setMaxBrightness(maxBrightness);
 
-        irGenerator.generate(distanceScaleMode);
+        irGenerator.generate();
         
         juce::File file = juce::File::getSpecialLocation(juce::File::userApplicationDataDirectory)
             .getChildFile("Stellaverb")
@@ -139,10 +136,10 @@ StellaverbAudioProcessorEditor::StellaverbAudioProcessorEditor (StellaverbAudioP
     gainLabel.setText ("Gain", juce::dontSendNotification);
     gainLabel.attachToComponent (&gain, false);
 
-    lowFreqLabel.setText ("Low Pass", juce::dontSendNotification);
+    lowFreqLabel.setText ("HP Cutoff", juce::dontSendNotification);
     lowFreqLabel.attachToComponent (&lowFreq, false);
 
-    highFreqLabel.setText ("High Pass", juce::dontSendNotification);
+    highFreqLabel.setText ("LP Cutoff", juce::dontSendNotification);
     highFreqLabel.attachToComponent (&highFreq, false);
 
     driveLabel.setText ("Drive", juce::dontSendNotification);
