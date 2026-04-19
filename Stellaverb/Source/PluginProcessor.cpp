@@ -331,7 +331,7 @@ juce::AudioProcessorValueTreeState::ParameterLayout StellaverbAudioProcessor::cr
     
     
     parameters.push_back(std::make_unique<juce::AudioParameterFloat>(juce::ParameterID{"length", 1}, "Length", 0.05f, 5.0f, 1.0f));
-    parameters.push_back(std::make_unique<juce::AudioParameterFloat>(juce::ParameterID{"decayTime", 1}, "DecayTime", 0.05f, 10.0f, 1.0f));
+    parameters.push_back(std::make_unique<juce::AudioParameterFloat>(juce::ParameterID{"decayTime", 1}, "DecayTime", 0.05f, 10.0f, 5.0f));
     parameters.push_back(std::make_unique<juce::AudioParameterFloat>(juce::ParameterID{"minDistance", 1}, "MinDistance", 0.0f, 1.0f, 0.0f));
     parameters.push_back(std::make_unique<juce::AudioParameterFloat>(juce::ParameterID{"maxDistance", 1}, "MaxDistance", 0.0f, 1.0f, 1.0f));
     parameters.push_back(std::make_unique<juce::AudioParameterFloat>(juce::ParameterID{"minBrightness", 1}, "MinBrightness", 0.0f, 1.0f, 0.0f));
@@ -343,6 +343,7 @@ juce::AudioProcessorValueTreeState::ParameterLayout StellaverbAudioProcessor::cr
     parameters.push_back(std::make_unique<juce::AudioParameterFloat>(juce::ParameterID{"lowFreq", 1}, "LowFreq", 20.0f, 500.0f, 20.0f));
     parameters.push_back(std::make_unique<juce::AudioParameterFloat>(juce::ParameterID{"highFreq", 1}, "HighFreq", 2000.0f, 20000.0f, 20000.0f));
     parameters.push_back(std::make_unique<juce::AudioParameterFloat>(juce::ParameterID{"drive", 1}, "Drive", 1.0f, 15.0f, 1.0f));
+    parameters.push_back(std::make_unique<juce::AudioParameterChoice>(juce::ParameterID{"irGenerationMode", 1}, "IRGenerationMode", juce::StringArray{"Acoustic", "Reverse", "Spectral"}, 0));
     
     return {parameters.begin(), parameters.end()};
 }

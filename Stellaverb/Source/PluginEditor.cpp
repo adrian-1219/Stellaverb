@@ -47,23 +47,22 @@ StellaverbAudioProcessorEditor::StellaverbAudioProcessorEditor (StellaverbAudioP
         audioProcessor.irReady = false;
         
         auto length = audioProcessor.parameters.getRawParameterValue("length")->load();
-        auto decayTime = audioProcessor.parameters.getRawParameterValue("decayTime")->load();
         auto minDistance = audioProcessor.parameters.getRawParameterValue("minDistance")->load();
         auto maxDistance = audioProcessor.parameters.getRawParameterValue("maxDistance")->load();
         auto minBrightness = audioProcessor.parameters.getRawParameterValue("minBrightness")->load();
         auto maxBrightness = audioProcessor.parameters.getRawParameterValue("maxBrightness")->load();
+        auto generationMode = audioProcessor.parameters.getRawParameterValue("irGenerationMode")->load();
         
         DBG("length: " + juce::String(length)
-            + ", decayTime: " + juce::String(decayTime)
             + ", minDistance: " + juce::String(minDistance)
             + ", maxDistance: " + juce::String(maxDistance));
         
         irGenerator.setLengthSeconds(length);
-        irGenerator.setDecay(decayTime);
         irGenerator.setMinDistance(minDistance);
         irGenerator.setMaxDistance(maxDistance);
         irGenerator.setMinBrightness(minBrightness);
         irGenerator.setMaxBrightness(maxBrightness);
+        irGenerator.setMode(generationMode);
 
         irGenerator.generate();
         
@@ -89,8 +88,8 @@ StellaverbAudioProcessorEditor::StellaverbAudioProcessorEditor (StellaverbAudioP
         audioProcessor.prepareToPlay(audioProcessor.getSampleRate(), audioProcessor.getBlockSize());
     };
     
-    auto sliders = { &length, &decayTime, &minDistance, &maxDistance, &minBrightness, &maxBrightness, &predelay, &width, &dryWet, &gain, &lowFreq, &highFreq, &drive};
-    auto labels  = { &lengthLabel, &decayTimeLabel, &minDistanceLabel, &maxDistanceLabel, &minBrightnessLabel, &maxBrightnessLabel, &predelayLabel, &widthLabel, &dryWetLabel, &gainLabel, &lowFreqLabel, &highFreqLabel, &driveLabel};
+    auto sliders = { &length, &minDistance, &maxDistance, &minBrightness, &maxBrightness, &predelay, &width, &dryWet, &gain, &lowFreq, &highFreq, &drive};
+    auto labels  = { &lengthLabel, &minDistanceLabel, &maxDistanceLabel, &minBrightnessLabel, &maxBrightnessLabel, &predelayLabel, &widthLabel, &dryWetLabel, &gainLabel, &lowFreqLabel, &highFreqLabel, &driveLabel};
     for (auto* slider : sliders)
     {
         addAndMakeVisible (slider);
@@ -108,9 +107,6 @@ StellaverbAudioProcessorEditor::StellaverbAudioProcessorEditor (StellaverbAudioP
     
     lengthLabel.setText ("Length", juce::dontSendNotification);
     lengthLabel.attachToComponent (&length, false);
-    
-    decayTimeLabel.setText ("Decay Time", juce::dontSendNotification);
-    decayTimeLabel.attachToComponent (&decayTime, false);
     
     minDistanceLabel.setText ("Min Distance", juce::dontSendNotification);
     minDistanceLabel.attachToComponent (&minDistance, false);
@@ -145,9 +141,21 @@ StellaverbAudioProcessorEditor::StellaverbAudioProcessorEditor (StellaverbAudioP
     driveLabel.setText ("Drive", juce::dontSendNotification);
     driveLabel.attachToComponent (&drive, false);
 
+    irGenerationModeLabel.setText ("IR Gen Mode", juce::dontSendNotification);
+    irGenerationModeLabel.attachToComponent (&irGenerationMode, false);
+    irGenerationModeLabel.setJustificationType (juce::Justification::centred);
+    irGenerationModeLabel.setLookAndFeel(&customLook);
+    addAndMakeVisible(irGenerationModeLabel);
+    
+    irGenerationMode.addItem("Acoustic", 1);
+    irGenerationMode.addItem("Reverse", 2);
+    irGenerationMode.addItem("Spectral", 3);
+    
+    irGenerationMode.setLookAndFeel(&customLook);
+    addAndMakeVisible(irGenerationMode);
+
     
     lengthAttachment = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(audioProcessor.parameters,"length", length);
-    decayTimeAttachment = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(audioProcessor.parameters, "decayTime", decayTime);
     minDistanceAttachment = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(audioProcessor.parameters, "minDistance", minDistance);
     maxDistanceAttachment = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(audioProcessor.parameters, "maxDistance", maxDistance);
     minBrightnessAttachment = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(audioProcessor.parameters, "minBrightness", minBrightness);
@@ -159,23 +167,69 @@ StellaverbAudioProcessorEditor::StellaverbAudioProcessorEditor (StellaverbAudioP
     lowFreqAttachment = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(audioProcessor.parameters, "lowFreq", lowFreq);
     highFreqAttachment = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(audioProcessor.parameters, "highFreq", highFreq);
     driveAttachment = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(audioProcessor.parameters, "drive", drive);
-
     
+    irGenerationModeAttachment = std::make_unique<juce::AudioProcessorValueTreeState::ComboBoxAttachment>(audioProcessor.parameters, "irGenerationMode", irGenerationMode);
+
+    length.onValueChange = [this]()
+    {
+        starDisplay.setCurrentLength(length.getValue() / 5.0f);
+    };
+    minDistance.onValueChange = [this]()
+    {
+        starDisplay.setMinDistance(minDistance.getValue());
+    };
+    maxDistance.onValueChange = [this]()
+    {
+        starDisplay.setMaxDistance(maxDistance.getValue());
+    };
+    minBrightness.onValueChange = [this]()
+    {
+        starDisplay.setMinBrightness(minBrightness.getValue());
+    };
+    maxBrightness.onValueChange = [this]()
+    {
+        starDisplay.setMaxBrightness(maxBrightness.getValue());
+    };
+    
+    // Initialize GUI values on startup
+    if (auto* lengthParam = audioProcessor.parameters.getRawParameterValue("length"))
+        starDisplay.setCurrentLength(lengthParam->load() / 5.0f);
+    if (auto* minDistanceParam = audioProcessor.parameters.getRawParameterValue("minDistance"))
+        starDisplay.setMinDistance(minDistanceParam->load());
+    if (auto* maxDistanceParam = audioProcessor.parameters.getRawParameterValue("maxDistance"))
+        starDisplay.setMaxDistance(maxDistanceParam->load());
+    if (auto* minBrightnessParam = audioProcessor.parameters.getRawParameterValue("minBrightness"))
+        starDisplay.setMinBrightness(minBrightnessParam->load());
+    if (auto* maxBrightnessParam = audioProcessor.parameters.getRawParameterValue("maxBrightness"))
+        starDisplay.setMaxBrightness(maxBrightnessParam->load());;
+    
+    
+    irGenerationMode.onChange = [this]()
+    {
+    };
+    irGenerationMode.onChange();
+    
+    loadStarData();
+    
+    addAndMakeVisible(starDisplay);
+
     // Make sure that before the constructor has finished, you've set the
     // editor's size to whatever you need it to be.
-    setSize (900, 550);
+    setSize (1160, 480);
 }
 
 StellaverbAudioProcessorEditor::~StellaverbAudioProcessorEditor()
 {
     setLookAndFeel(nullptr);
-    auto sliders = { &length, &decayTime, &minDistance, &maxDistance, &minBrightness, &maxBrightness, &predelay, &width, &dryWet, &gain, &lowFreq, &highFreq, &drive};
+    irGenerationMode.setLookAndFeel(nullptr);
+    irGenerationModeLabel.setLookAndFeel(nullptr);
+    auto sliders = { &length, &minDistance, &maxDistance, &minBrightness, &maxBrightness, &predelay, &width, &dryWet, &gain, &lowFreq, &highFreq, &drive};
     for (auto* slider : sliders)
     {
         slider->setLookAndFeel(nullptr);
     }
     
-    auto labels  = { &lengthLabel, &decayTimeLabel, &minDistanceLabel, &maxDistanceLabel, &minBrightnessLabel, &maxBrightnessLabel, &predelayLabel, &widthLabel, &dryWetLabel, &gainLabel, &lowFreqLabel, &highFreqLabel, &driveLabel};
+    auto labels  = { &lengthLabel, &minDistanceLabel, &maxDistanceLabel, &minBrightnessLabel, &maxBrightnessLabel, &predelayLabel, &widthLabel, &dryWetLabel, &gainLabel, &lowFreqLabel, &highFreqLabel, &driveLabel};
     for (auto* label : labels)
     {
         label->setLookAndFeel(nullptr);
@@ -188,6 +242,12 @@ void StellaverbAudioProcessorEditor::paint (juce::Graphics& g)
 {
     // (Our component is opaque, so we must completely fill the background with a solid colour)
     g.fillAll (getLookAndFeel().findColour (juce::ResizableWindow::backgroundColourId));
+    
+    // Make entire left side with the stars black
+    int starAreaSize = 420;
+    int starPadding = 15;
+    g.setColour(juce::Colours::black);
+    g.fillRect(0, 0, starPadding * 2 + starAreaSize, getHeight());
 
     g.setColour (juce::Colours::orange.withAlpha(0.9f));
     g.setFont (juce::FontOptions (36.0f, juce::Font::bold));
@@ -202,19 +262,25 @@ void StellaverbAudioProcessorEditor::paint (juce::Graphics& g)
 
 void StellaverbAudioProcessorEditor::resized()
 {
-    int sliderWidth = 100;
-    int sliderHeight = 100;
-    int padding = 20;
-    int y = 90;
+    int starAreaSize = 420;
+    int starPadding = 15;
+    int starY = (getHeight() - starAreaSize) / 2;
+    starDisplay.setBounds(starPadding, starY, starAreaSize, starAreaSize);
     
-    // Center the sliders (top row - 6 options)
-    int totalWidthTop = (sliderWidth * 6) + (padding * 5);
-    int startX1 = (getWidth() - totalWidthTop) / 2;
+    int rightAreaX = starPadding * 2 + starAreaSize;
+    int rightAreaWidth = getWidth() - rightAreaX;
+
+    int sliderWidth = 80;
+    int sliderHeight = 80;
+    int padding = 15;
+    int y = 70;
+    
+    // Center the sliders (top row - 5 options)
+    int totalWidthTop = (sliderWidth * 5) + (padding * 4);
+    int startX1 = rightAreaX + (rightAreaWidth - totalWidthTop) / 2;
     int x1 = startX1;
     
     length.setBounds(x1, y, sliderWidth, sliderHeight);
-    x1 += sliderWidth + padding;
-    decayTime.setBounds(x1, y, sliderWidth, sliderHeight);
     x1 += sliderWidth + padding;
     minDistance.setBounds(x1, y, sliderWidth, sliderHeight);
     x1 += sliderWidth + padding;
@@ -225,15 +291,21 @@ void StellaverbAudioProcessorEditor::resized()
     maxBrightness.setBounds(x1, y, sliderWidth, sliderHeight);
     
     // Generate IR button
-    int btnWidth = 200;
+    int btnWidth = 150;
     int btnHeight = 35;
-    int btnY = y + sliderHeight + 10;
-    generateButton.setBounds((getWidth() - btnWidth) / 2, btnY, btnWidth, btnHeight);
+    int comboWidth = 150;
+    
+    int componentsWidth = btnWidth + comboWidth + padding;
+    int btnX = rightAreaX + (rightAreaWidth - componentsWidth) / 2;
+    
+    int btnY = y + sliderHeight + 15;
+    generateButton.setBounds(btnX, btnY, btnWidth, btnHeight);
+    irGenerationMode.setBounds(btnX + btnWidth + padding, btnY, comboWidth, btnHeight);
     
     // Center the sliders (bottom row - 7 options)
-    int bottomRowY = getHeight() - sliderHeight - 20;
+    int bottomRowY = getHeight() - sliderHeight - 15;
     int totalWidthBottom = (sliderWidth * 7) + (padding * 6);
-    int startX2 = (getWidth() - totalWidthBottom) / 2;
+    int startX2 = rightAreaX + (rightAreaWidth - totalWidthBottom) / 2;
     int x2 = startX2;
     
     predelay.setBounds(x2, bottomRowY, sliderWidth, sliderHeight);
@@ -252,7 +324,7 @@ void StellaverbAudioProcessorEditor::resized()
 
     // Place waveform display below sliders and above bottom row
     int waveformY = btnY + btnHeight + padding;
-    waveformDisplay.setBounds(20, waveformY, getWidth() - 40, bottomRowY - waveformY - 40);
+    waveformDisplay.setBounds(rightAreaX, waveformY, rightAreaWidth - 20, bottomRowY - waveformY - 20);
 }
 
 void CustomLookAndFeel::drawRotarySlider(juce::Graphics& g,

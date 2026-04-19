@@ -49,6 +49,11 @@ public:
     {
         minBrightness = brightness;
     }
+    
+    void setMode(int mode)
+    {
+        generationMode = mode;
+    }
 
     void generate()
     {
@@ -81,27 +86,45 @@ public:
             
             if (idx >= 0 && idx < irLengthSamples)
             {
-                float sample = s.amplitude;
-
+                float sample;
+                if (generationMode == 1)
+                {
+                    sample = s.distance;
+                }
+                else if (generationMode == 0)
+                {
+                    sample = 1.0f - s.distance;
+                }
+                else
+                {
+                    sample = s.amplitude;
+                }
                 left[idx]  += sample * s.left;
                 right[idx] += sample * s.right;
             }
            
         }
         
-        
         for (int ch = 0; ch < numChannels; ++ch)
         {
             float* data = impulseResponse.getWritePointer(ch);
-
+            
             for (int i = 0; i < irLengthSamples; ++i)
             {
-
+                
                 float t = (float)i / (float)irLengthSamples;
-
+                
                 // Exponential decay
-                float env = std::exp(-decay * t);
-
+                float env = 1;
+                if (generationMode == 0)
+                {
+                    env = std::exp(-10.0f * t);
+                }
+                else if (generationMode == 1) // reverse mode not working yet
+                {
+                    env = std::exp(-2.0f * (1-t));
+                }
+                
                 data[i] = data[i] * env;
             }
         }
@@ -178,10 +201,11 @@ private:
     // default parameters
     // use all stars as default
     float decay = 1.0f;
-    float maxDistance = 7.0f;
+    float maxDistance = 1.0f;
     float minDistance = 0.0f;
     float maxBrightness = 1.0f;
     float minBrightness = 0.0f;
+    int generationMode = 0;
 
     juce::AudioBuffer<float> impulseResponse;
 
