@@ -30,6 +30,15 @@ public:
                                const juce::Colour& backgroundColour,
                                bool shouldDrawButtonAsHighlighted,
                                bool shouldDrawButtonAsDown) override;
+
+    juce::Path getTickShape (float height) override;
+    
+    void drawPopupMenuItem (juce::Graphics& g, const juce::Rectangle<int>& area,
+                            const bool isSeparator, const bool isActive,
+                            const bool isHighlighted, const bool isTicked,
+                            const bool hasSubMenu, const juce::String& text,
+                            const juce::String& shortcutKeyText,
+                            const juce::Drawable* icon, const juce::Colour* const textColourToUse) override;
 };
 
 class StellaverbAudioProcessorEditor  : public juce::AudioProcessorEditor

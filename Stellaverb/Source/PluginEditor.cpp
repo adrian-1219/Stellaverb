@@ -27,6 +27,16 @@ StellaverbAudioProcessorEditor::StellaverbAudioProcessorEditor (StellaverbAudioP
     customLook.setColour(juce::TextButton::buttonOnColourId, juce::Colours::white.withAlpha(0.9f));
     customLook.setColour(juce::TextButton::textColourOffId, juce::Colours::white.withAlpha(0.9f));
     customLook.setColour(juce::TextButton::textColourOnId, juce::Colours::black.withAlpha(0.9f));
+
+    customLook.setColour(juce::ComboBox::backgroundColourId, juce::Colours::black);
+    customLook.setColour(juce::ComboBox::textColourId, juce::Colours::white.withAlpha(0.9f));
+    customLook.setColour(juce::ComboBox::outlineColourId, juce::Colours::white.withAlpha(0.5f));
+    customLook.setColour(juce::ComboBox::arrowColourId, juce::Colours::white.withAlpha(0.9f));
+    
+    customLook.setColour(juce::PopupMenu::backgroundColourId, juce::Colours::black);
+    customLook.setColour(juce::PopupMenu::textColourId, juce::Colours::white.withAlpha(0.9f));
+    customLook.setColour(juce::PopupMenu::highlightedBackgroundColourId, juce::Colours::white.withAlpha(0.2f));
+    customLook.setColour(juce::PopupMenu::highlightedTextColourId, juce::Colours::white);
     
     setLookAndFeel(&customLook);
 
@@ -430,12 +440,112 @@ void CustomLookAndFeel::drawButtonBackground (juce::Graphics& g,
 
     if (shouldDrawButtonAsHighlighted)
     {
-        g.setColour (juce::Colours::orange.withAlpha(0.9f));
+        g.setColour (juce::Colours::orange);
         g.drawRoundedRectangle (bounds, cornerSize, 2.0f);
     }
     else
     {
         g.setColour (juce::Colours::white.withAlpha(0.5f));
         g.drawRoundedRectangle (bounds, cornerSize, 1.0f);
+    }
+}
+
+juce::Path CustomLookAndFeel::getTickShape (float height)
+{
+    juce::Path p;
+    float diameter = height * 0.01f; // make it smaller
+    float x = (height * 2.0f - diameter) * 0.5f;
+    float y = (height - diameter) * 0.5f;
+    p.addEllipse (x, y, 1.0f, 1.0f);
+    return p;
+}
+
+void CustomLookAndFeel::drawPopupMenuItem (juce::Graphics& g, const juce::Rectangle<int>& area,
+                                           const bool isSeparator, const bool isActive,
+                                           const bool isHighlighted, const bool isTicked,
+                                           const bool hasSubMenu, const juce::String& text,
+                                           const juce::String& shortcutKeyText,
+                                           const juce::Drawable* icon, const juce::Colour* const textColourToUse)
+{
+    if (isSeparator)
+    {
+        auto r  = area.reduced (5, 0);
+        r.removeFromTop (juce::roundToInt (((float) r.getHeight() * 0.5f) - 0.5f));
+
+        g.setColour (findColour (juce::PopupMenu::textColourId).withAlpha (0.3f));
+        g.fillRect (r.removeFromTop (1));
+    }
+    else
+    {
+        auto textColour = (textColourToUse == nullptr ? findColour (juce::PopupMenu::textColourId)
+                                                      : *textColourToUse);
+
+        auto r  = area.reduced (1);
+
+        if (isHighlighted && isActive)
+        {
+            g.setColour (findColour (juce::PopupMenu::highlightedBackgroundColourId));
+            g.fillRect (r);
+
+            g.setColour (findColour (juce::PopupMenu::highlightedTextColourId));
+        }
+        else
+        {
+            g.setColour (textColour.withMultipliedAlpha (isActive ? 1.0f : 0.5f));
+        }
+
+        r.reduce (juce::jmin (5, area.getWidth() / 20), 0);
+
+        auto font = getPopupMenuFont();
+
+        auto maxFontHeight = (float) r.getHeight() / 1.3f;
+
+        if (font.getHeight() > maxFontHeight)
+            font.setHeight (maxFontHeight);
+
+        g.setFont (font);
+
+        auto iconArea = r.removeFromLeft (juce::roundToInt (maxFontHeight)).toFloat();
+
+        if (icon != nullptr)
+        {
+            icon->drawWithin (g, iconArea, juce::RectanglePlacement::centred | juce::RectanglePlacement::onlyReduceInSize, 1.0f);
+            r.removeFromLeft (juce::roundToInt (maxFontHeight * 0.5f));
+        }
+        else if (isTicked)
+        {
+            g.setColour(juce::Colours::orange);
+            g.drawText ("*", iconArea.toNearestInt(), juce::Justification::centred, true);
+            if (isHighlighted && isActive) g.setColour (findColour (juce::PopupMenu::highlightedTextColourId));
+            else g.setColour (textColour.withMultipliedAlpha (isActive ? 1.0f : 0.5f));
+        }
+
+        if (hasSubMenu)
+        {
+            auto arrowH = 0.6f * getPopupMenuFont().getAscent();
+
+            auto x = static_cast<float> (r.removeFromRight ((int) arrowH).getX());
+            auto halfH = static_cast<float> (r.getCentreY());
+
+            juce::Path path;
+            path.startNewSubPath (x, halfH - arrowH * 0.5f);
+            path.lineTo (x + arrowH * 0.6f, halfH);
+            path.lineTo (x, halfH + arrowH * 0.5f);
+
+            g.strokePath (path, juce::PathStrokeType (2.0f));
+        }
+
+        r.removeFromRight (3);
+        g.drawFittedText (text, r, juce::Justification::centredLeft, 1);
+
+        if (shortcutKeyText.isNotEmpty())
+        {
+            auto f2 = font;
+            f2.setHeight (f2.getHeight() * 0.75f);
+            f2.setHorizontalScale (0.95f);
+            g.setFont (f2);
+
+            g.drawText (shortcutKeyText, r, juce::Justification::centredRight, true);
+        }
     }
 }
