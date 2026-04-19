@@ -31,6 +31,12 @@ public:
                                bool shouldDrawButtonAsHighlighted,
                                bool shouldDrawButtonAsDown) override;
 
+    juce::Font getLabelFont (juce::Label& label) override;
+
+    juce::Font getTextButtonFont (juce::TextButton&, int buttonHeight) override;
+    juce::Font getPopupMenuFont() override;
+    juce::Font getComboBoxFont (juce::ComboBox& box) override;
+
     juce::Path getTickShape (float height) override;
     
     void drawPopupMenuItem (juce::Graphics& g, const juce::Rectangle<int>& area,

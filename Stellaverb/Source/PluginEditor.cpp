@@ -450,6 +450,26 @@ void CustomLookAndFeel::drawButtonBackground (juce::Graphics& g,
     }
 }
 
+juce::Font CustomLookAndFeel::getLabelFont (juce::Label& label)
+{
+    return juce::Font (juce::FontOptions (juce::Font::getDefaultMonospacedFontName(), 13.0f, juce::Font::plain));
+}
+
+juce::Font CustomLookAndFeel::getTextButtonFont (juce::TextButton&, int buttonHeight)
+{
+    return juce::Font (juce::FontOptions (juce::Font::getDefaultMonospacedFontName(), juce::jmin(13.0f, (float)buttonHeight * 0.6f), juce::Font::plain));
+}
+
+juce::Font CustomLookAndFeel::getPopupMenuFont()
+{
+    return juce::Font (juce::FontOptions (juce::Font::getDefaultMonospacedFontName(), 13.0f, juce::Font::plain));
+}
+
+juce::Font CustomLookAndFeel::getComboBoxFont (juce::ComboBox& box)
+{
+    return juce::Font (juce::FontOptions (juce::Font::getDefaultMonospacedFontName(), 13.0f, juce::Font::plain));
+}
+
 juce::Path CustomLookAndFeel::getTickShape (float height)
 {
     juce::Path p;
