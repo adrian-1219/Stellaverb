@@ -23,7 +23,7 @@ StellaverbAudioProcessorEditor::StellaverbAudioProcessorEditor (StellaverbAudioP
     
     customLook.setColour(juce::Label::textColourId, juce::Colours::white.withAlpha(0.9f));
     
-    customLook.setColour(juce::TextButton::buttonColourId, juce::Colour(0xff1f1f1f));
+    customLook.setColour(juce::TextButton::buttonColourId, juce::Colours::black);
     customLook.setColour(juce::TextButton::buttonOnColourId, juce::Colours::white.withAlpha(0.9f));
     customLook.setColour(juce::TextButton::textColourOffId, juce::Colours::white.withAlpha(0.9f));
     customLook.setColour(juce::TextButton::textColourOnId, juce::Colours::black.withAlpha(0.9f));
