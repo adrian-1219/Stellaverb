@@ -16,17 +16,17 @@ StellaverbAudioProcessorEditor::StellaverbAudioProcessorEditor (StellaverbAudioP
 {
     formatManager.registerBasicFormats();
     
-    customLook.setColour(juce::ResizableWindow::backgroundColourId, juce::Colour(0xfffff8e1));
+    customLook.setColour(juce::ResizableWindow::backgroundColourId, juce::Colours::black);
     
-    customLook.setColour(juce::Slider::textBoxTextColourId, juce::Colours::black.withAlpha(0.8f));
+    customLook.setColour(juce::Slider::textBoxTextColourId, juce::Colours::white.withAlpha(0.9f));
     customLook.setColour(juce::Slider::textBoxOutlineColourId, juce::Colours::transparentBlack);
     
-    customLook.setColour(juce::Label::textColourId, juce::Colours::black.withAlpha(0.9f));
+    customLook.setColour(juce::Label::textColourId, juce::Colours::white.withAlpha(0.9f));
     
     customLook.setColour(juce::TextButton::buttonColourId, juce::Colour(0xff1f1f1f));
-    customLook.setColour(juce::TextButton::buttonOnColourId, juce::Colours::orange);
-    customLook.setColour(juce::TextButton::textColourOffId, juce::Colours::white);
-    customLook.setColour(juce::TextButton::textColourOnId, juce::Colours::white);
+    customLook.setColour(juce::TextButton::buttonOnColourId, juce::Colours::white.withAlpha(0.9f));
+    customLook.setColour(juce::TextButton::textColourOffId, juce::Colours::white.withAlpha(0.9f));
+    customLook.setColour(juce::TextButton::textColourOnId, juce::Colours::black.withAlpha(0.9f));
     
     setLookAndFeel(&customLook);
 
@@ -215,7 +215,7 @@ StellaverbAudioProcessorEditor::StellaverbAudioProcessorEditor (StellaverbAudioP
 
     // Make sure that before the constructor has finished, you've set the
     // editor's size to whatever you need it to be.
-    setSize (1160, 480);
+    setSize(860, 520);
 }
 
 StellaverbAudioProcessorEditor::~StellaverbAudioProcessorEditor()
@@ -244,17 +244,21 @@ void StellaverbAudioProcessorEditor::paint (juce::Graphics& g)
     g.fillAll (getLookAndFeel().findColour (juce::ResizableWindow::backgroundColourId));
     
     // Make entire left side with the stars black
-    int starAreaSize = 420;
-    int starPadding = 15;
+    int starAreaSize = 360;
+    int starPadding = 10;
     g.setColour(juce::Colours::black);
-    g.fillRect(0, 0, starPadding * 2 + starAreaSize, getHeight());
+    // Draw the black box properly up to the boundary
+    int rightAreaX = starPadding + starAreaSize; // move even more left
+    g.fillRect(0, 0, rightAreaX, getHeight());
 
-    g.setColour (juce::Colours::orange.withAlpha(0.9f));
-    g.setFont (juce::FontOptions (36.0f, juce::Font::bold));
-    g.drawText ("Stellaverb", 0, 20, getWidth(), 40, juce::Justification::centred, true);
+    int rightAreaWidth = getWidth() - rightAreaX;
+
+    g.setColour (juce::Colours::white.withAlpha(0.9f));
+    g.setFont (juce::FontOptions (juce::Font::getDefaultMonospacedFontName(), 24.0f, juce::Font::plain));
+    g.drawText ("[Stellaverb]", rightAreaX, 20, rightAreaWidth, 40, juce::Justification::centred, true);
 
     g.setColour (juce::Colours::white);
-    g.setFont (juce::FontOptions (15.0f));
+    g.setFont (juce::FontOptions (juce::Font::getDefaultMonospacedFontName(), 10.0f, juce::Font::plain));
     
     
     // waveformDisplay painting is handled by its own paint method
@@ -262,18 +266,21 @@ void StellaverbAudioProcessorEditor::paint (juce::Graphics& g)
 
 void StellaverbAudioProcessorEditor::resized()
 {
-    int starAreaSize = 420;
+    int starAreaSize = 360;
     int starPadding = 15;
-    int starY = (getHeight() - starAreaSize) / 2;
+    int starY = 15;
     starDisplay.setBounds(starPadding, starY, starAreaSize, starAreaSize);
     
-    int rightAreaX = starPadding * 2 + starAreaSize;
+    int rightAreaX = starPadding + starAreaSize + 5; // Match new left separation
     int rightAreaWidth = getWidth() - rightAreaX;
 
-    int sliderWidth = 80;
-    int sliderHeight = 80;
-    int padding = 15;
-    int y = 70;
+    int waveformY = starY + starAreaSize + 15;
+    waveformDisplay.setBounds(starPadding, waveformY, starAreaSize, getHeight() - waveformY - 15);
+
+    int sliderWidth = 88;
+    int sliderHeight = 85;
+    int padding = 6;
+    int y = 92;
     
     // Center the sliders (top row - 5 options)
     int totalWidthTop = (sliderWidth * 5) + (padding * 4);
@@ -290,41 +297,43 @@ void StellaverbAudioProcessorEditor::resized()
     x1 += sliderWidth + padding;
     maxBrightness.setBounds(x1, y, sliderWidth, sliderHeight);
     
-    // Generate IR button
-    int btnWidth = 150;
+    // Generate IR button & Mode Combo
+    int btnWidth = 120;
     int btnHeight = 35;
-    int comboWidth = 150;
+    int comboWidth = 120;
     
     int componentsWidth = btnWidth + comboWidth + padding;
     int btnX = rightAreaX + (rightAreaWidth - componentsWidth) / 2;
     
-    int btnY = y + sliderHeight + 15;
-    generateButton.setBounds(btnX, btnY, btnWidth, btnHeight);
-    irGenerationMode.setBounds(btnX + btnWidth + padding, btnY, comboWidth, btnHeight);
+    int btnY = y + sliderHeight + 40; // Spacing below top row
+    irGenerationMode.setBounds(btnX, btnY, comboWidth, btnHeight);
+    generateButton.setBounds(btnX + comboWidth + padding, btnY, btnWidth, btnHeight);
     
-    // Center the sliders (bottom row - 7 options)
-    int bottomRowY = getHeight() - sliderHeight - 15;
-    int totalWidthBottom = (sliderWidth * 7) + (padding * 6);
-    int startX2 = rightAreaX + (rightAreaWidth - totalWidthBottom) / 2;
-    int x2 = startX2;
+    // Middle row (4 options)
+    int row1Y = btnY + btnHeight + 40;
+    int totalWidthRow1 = (sliderWidth * 4) + (padding * 3);
+    int startXR1 = rightAreaX + (rightAreaWidth - totalWidthRow1) / 2;
+    int x1_row1 = startXR1;
     
-    predelay.setBounds(x2, bottomRowY, sliderWidth, sliderHeight);
-    x2 += sliderWidth + padding;
-    lowFreq.setBounds(x2, bottomRowY, sliderWidth, sliderHeight);
-    x2 += sliderWidth + padding;
-    highFreq.setBounds(x2, bottomRowY, sliderWidth, sliderHeight);
-    x2 += sliderWidth + padding;
-    drive.setBounds(x2, bottomRowY, sliderWidth, sliderHeight);
-    x2 += sliderWidth + padding;
-    width.setBounds(x2, bottomRowY, sliderWidth, sliderHeight);
-    x2 += sliderWidth + padding;
-    dryWet.setBounds(x2, bottomRowY, sliderWidth, sliderHeight);
-    x2 += sliderWidth + padding;
-    gain.setBounds(x2, bottomRowY, sliderWidth, sliderHeight);
+    predelay.setBounds(x1_row1, row1Y, sliderWidth, sliderHeight);
+    x1_row1 += sliderWidth + padding;
+    lowFreq.setBounds(x1_row1, row1Y, sliderWidth, sliderHeight);
+    x1_row1 += sliderWidth + padding;
+    highFreq.setBounds(x1_row1, row1Y, sliderWidth, sliderHeight);
+    x1_row1 += sliderWidth + padding;
+    drive.setBounds(x1_row1, row1Y, sliderWidth, sliderHeight);
 
-    // Place waveform display below sliders and above bottom row
-    int waveformY = btnY + btnHeight + padding;
-    waveformDisplay.setBounds(rightAreaX, waveformY, rightAreaWidth - 20, bottomRowY - waveformY - 20);
+    // Bottom row (3 options)
+    int row2Y = row1Y + sliderHeight + 30;
+    int totalWidthRow2 = (sliderWidth * 3) + (padding * 2);
+    int startXR2 = rightAreaX + (rightAreaWidth - totalWidthRow2) / 2;
+    int x1_row2 = startXR2;
+    
+    width.setBounds(x1_row2, row2Y, sliderWidth, sliderHeight);
+    x1_row2 += sliderWidth + padding;
+    dryWet.setBounds(x1_row2, row2Y, sliderWidth, sliderHeight);
+    x1_row2 += sliderWidth + padding;
+    gain.setBounds(x1_row2, row2Y, sliderWidth, sliderHeight);
 }
 
 void CustomLookAndFeel::drawRotarySlider(juce::Graphics& g,
@@ -352,11 +361,27 @@ void CustomLookAndFeel::drawRotarySlider(juce::Graphics& g,
     g.setColour(juce::Colours::white.withAlpha(0.05f));
     g.drawEllipse(centre.x - radius, centre.y - radius, radius * 2.0f, radius * 2.0f, 1.0f);
 
-    juce::Path valueArc;
-
-    float arcThickness = 3.5f;
+    float arcThickness = 1.5f;
     float startAngle = rotaryStartAngle;
     float endAngle = angle;
+    
+    // faint full arc background
+    juce::Path fullArc;
+    fullArc.addCentredArc(centre.x, centre.y,
+                          radius * 0.85f, radius * 0.85f,
+                          0.0f,
+                          rotaryStartAngle,
+                          rotaryEndAngle,
+                          true);
+
+    g.setColour(juce::Colours::white.withAlpha(0.5f));
+    g.strokePath(fullArc, juce::PathStrokeType(arcThickness));
+
+    juce::Path pointer;
+    float pointerLength = radius * 0.65f;
+    float pointerThickness = 1.5f;
+    
+    juce::Path valueArc;
 
     valueArc.addCentredArc(centre.x, centre.y,
                            radius * 0.85f, radius * 0.85f,
@@ -370,21 +395,7 @@ void CustomLookAndFeel::drawRotarySlider(juce::Graphics& g,
                                                  juce::PathStrokeType::curved,
                                                  juce::PathStrokeType::rounded));
 
-    // faint full arc background
-    juce::Path fullArc;
-    fullArc.addCentredArc(centre.x, centre.y,
-                          radius * 0.85f, radius * 0.85f,
-                          0.0f,
-                          rotaryStartAngle,
-                          rotaryEndAngle,
-                          true);
-
-    g.setColour(juce::Colours::white.withAlpha(0.08f));
-    g.strokePath(fullArc, juce::PathStrokeType(arcThickness));
-
-    juce::Path pointer;
-    float pointerLength = radius * 0.65f;
-    float pointerThickness = 3.0f;
+   
 
     pointer.addRoundedRectangle(-pointerThickness * 0.5f,
                                 -pointerLength,

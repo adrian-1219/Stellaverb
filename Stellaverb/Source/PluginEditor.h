@@ -65,7 +65,7 @@ private:
         void paint(juce::Graphics& g) override
         {
             g.fillAll(juce::Colours::black);
-            g.setColour(juce::Colour(0xfffff8e1));
+            g.setColour(juce::Colours::white);
             if (thumbnail.getNumChannels() > 0)
                 thumbnail.drawChannels(g, getLocalBounds(), 0.0, thumbnail.getTotalLength(), 1.0f);
             else
@@ -177,7 +177,7 @@ private:
             g.setColour(juce::Colours::white.withAlpha(0.6f));
             g.setFont(10.0f);
             
-            float axisPadx = 40.0f;
+            float axisPadx = 20.0f;
             float axisPady = getHeight() - 20.0f;
             
             // X-axis (Bottom)
@@ -187,7 +187,8 @@ private:
                 float px = axisPadx + (getWidth() - axisPadx - 20.0f) * (i / 4.0f);
                 g.drawLine(px, axisPady - 4.0f, px, axisPady + 4.0f, 1.0f);
                 float val = currentLength * (i / 4.0f) * 5.0f;
-                g.drawText(juce::String(val, 1) + " s", px - 15.0f, axisPady + 5.0f, 30.0f, 15.0f, juce::Justification::centred);
+                if (i == 0 or i == 4)
+                    g.drawText(juce::String(val, 1) + " s", px - 15.0f, axisPady + 5.0f, 30.0f, 15.0f, juce::Justification::centred);
             }
             
             // Y-axis (Left)
@@ -197,8 +198,8 @@ private:
                 float py = 20.0f + (axisPady - 20.0f) * (i / 4.0f);
                 g.drawLine(axisPadx - 4.0f, py, axisPadx + 4.0f, py, 1.0f);
                 float val = currentLength * ((4 - i) / 4.0f) * 5.0f;
-                if (i != 4) // avoid overlapping the corner 0 with x-axis
-                    g.drawText(juce::String(val, 1) + " s", axisPadx - 45.0f, py - 7.0f, 35.0f, 15.0f, juce::Justification::centredRight);
+                if (i == 0) // avoid overlapping the corner 0 with x-axis
+                    g.drawText(juce::String(val, 1) + " s", axisPadx - 5.0f, py - 7.0f, 35.0f, 15.0f, juce::Justification::centredRight);
             }
         }
     private:
