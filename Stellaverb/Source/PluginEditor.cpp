@@ -159,7 +159,7 @@ StellaverbAudioProcessorEditor::StellaverbAudioProcessorEditor (StellaverbAudioP
     
     irGenerationMode.addItem("Acoustic", 1);
     irGenerationMode.addItem("Reverse", 2);
-    irGenerationMode.addItem("Spectral", 3);
+    irGenerationMode.addItem("Sustain", 3);
     
     irGenerationMode.setLookAndFeel(&customLook);
     addAndMakeVisible(irGenerationMode);

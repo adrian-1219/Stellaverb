@@ -343,7 +343,7 @@ juce::AudioProcessorValueTreeState::ParameterLayout StellaverbAudioProcessor::cr
     parameters.push_back(std::make_unique<juce::AudioParameterFloat>(juce::ParameterID{"lowFreq", 1}, "LowFreq", 20.0f, 500.0f, 20.0f));
     parameters.push_back(std::make_unique<juce::AudioParameterFloat>(juce::ParameterID{"highFreq", 1}, "HighFreq", 2000.0f, 20000.0f, 20000.0f));
     parameters.push_back(std::make_unique<juce::AudioParameterFloat>(juce::ParameterID{"drive", 1}, "Drive", 1.0f, 15.0f, 1.0f));
-    parameters.push_back(std::make_unique<juce::AudioParameterChoice>(juce::ParameterID{"irGenerationMode", 1}, "IRGenerationMode", juce::StringArray{"Acoustic", "Reverse", "Spectral"}, 0));
+    parameters.push_back(std::make_unique<juce::AudioParameterChoice>(juce::ParameterID{"irGenerationMode", 1}, "IRGenerationMode", juce::StringArray{"Acoustic", "Reverse", "Sustain"}, 0));
     
     return {parameters.begin(), parameters.end()};
 }
