@@ -3,5 +3,8 @@ Builds/
 .DS_Store
 stellaverb test Project/
 stellaverb demo Project/
+stellaverb demo-1 Project/
 stellaverb demo video.mp4
 submission.zip
+stellaverb demo drums*
+stellaverb demo melody*
