@@ -18,7 +18,7 @@ The core of the plugin is its ability to generate an impulse response (IR) using
 
 The plugin has 3 modes, 5 IR generation parameters, and 7 post-processing effects. 
 
-![Screenshot of UI](./images/ui.png)
+![Screenshot of UI](./assets/ui.png)
 
 ### Modes
 Modes are different mapping algorithms used when converting star data into impulse responses.
