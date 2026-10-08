@@ -10,7 +10,6 @@
 
 #include <JuceHeader.h>
 #include "PluginProcessor.h"
-#include "IRGenerator.h"
 
 //==============================================================================
 /**
@@ -47,7 +46,7 @@ public:
                             const juce::Drawable* icon, const juce::Colour* const textColourToUse) override;
 };
 
-class StellaverbAudioProcessorEditor  : public juce::AudioProcessorEditor
+class StellaverbAudioProcessorEditor  : public juce::AudioProcessorEditor, private juce::Timer
 {
 public:
     StellaverbAudioProcessorEditor (StellaverbAudioProcessor&);
@@ -234,7 +233,6 @@ private:
     };
 
     juce::TextButton generateButton { "Generate IR" };
-    IRGenerator irGenerator = IRGenerator(44100.0f, 2);
     
     StellaverbAudioProcessor& audioProcessor;
     juce::Slider length, minDistance, maxDistance, minBrightness, maxBrightness;
@@ -256,7 +254,14 @@ private:
     
     CustomLookAndFeel customLook;
     
+    using IRParameterValues = std::array<float, 6>;
     
+    IRParameterValues readIRParameters() const;
+    void regenerateIRAndRefresh();
+    void timerCallback() override;
+    
+    IRParameterValues lastIRParameters {};
+    bool hasGeneratedIR = false;
     
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (StellaverbAudioProcessorEditor)
 };

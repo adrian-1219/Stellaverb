@@ -9,6 +9,8 @@
 #pragma once
 
 #include <JuceHeader.h>
+#include "IRGenerator.h"
+#include <array>
 
 //==============================================================================
 /**
@@ -55,6 +57,24 @@ public:
     
     juce::AudioProcessorValueTreeState::ParameterLayout createParameterLayout();
     juce::AudioProcessorValueTreeState parameters;
+    
+    // IR params
+    std::atomic<float>* lengthParam;
+    std::atomic<float>* minDistanceParam;
+    std::atomic<float>* maxDistanceParam;
+    std::atomic<float>* minBrightnessParam;
+    std::atomic<float>* maxBrightnessParam;
+    std::atomic<float>* irGenerationModeParam;
+    
+    // Effects params
+    std::atomic<float>* widthParam;
+    std::atomic<float>* preDelayParam;
+    std::atomic<float>* lowFreqParam;
+    std::atomic<float>* highFreqParam;
+    std::atomic<float>* driveParam;
+    std::atomic<float>* dryWetParam;
+    
+    bool generateIR();
 
     // JUCE dsp modules
     juce::dsp::Convolution convolution;
@@ -72,10 +92,24 @@ public:
     
     std::atomic<bool> irReady { false };
     
+    // UI-thread access only while generation remains on the UI thread.
+    const juce::AudioBuffer<float>& getGeneratedIRBuffer() const
+    {
+        return generatedIRBuffer;
+    }
+    
 
 private:
     //==============================================================================
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (StellaverbAudioProcessor)
     
+    static constexpr double irSampleRate = 44100.0;
+
+    juce::AudioBuffer<float> buildIRFromCurrentParameters() const;
+
+    // Used only by the UI for the waveform.
+    juce::AudioBuffer<float> generatedIRBuffer;
     
+    juce::SpinLock pendingIRLock;
+    juce::AudioBuffer<float> pendingIR;
 };

@@ -39,63 +39,12 @@ StellaverbAudioProcessorEditor::StellaverbAudioProcessorEditor (StellaverbAudioP
     customLook.setColour(juce::PopupMenu::highlightedTextColourId, juce::Colours::white);
     
     setLookAndFeel(&customLook);
-
-    juce::File file = juce::File::getSpecialLocation(juce::File::userApplicationDataDirectory)
-        .getChildFile("Stellaverb")
-        .getChildFile("generated_ir.wav");
-    
-    // Load the generated IR file into the thumbnail
-    thumbnail.setSource(nullptr);
-    thumbnail.clear();
-    
-    thumbnail.setSource(new juce::FileInputSource(file));
     
     addAndMakeVisible(waveformDisplay);
     addAndMakeVisible(generateButton);
     generateButton.onClick = [this]()
     {
-        audioProcessor.irReady = false;
-        
-        auto length = audioProcessor.parameters.getRawParameterValue("length")->load();
-        auto minDistance = audioProcessor.parameters.getRawParameterValue("minDistance")->load();
-        auto maxDistance = audioProcessor.parameters.getRawParameterValue("maxDistance")->load();
-        auto minBrightness = audioProcessor.parameters.getRawParameterValue("minBrightness")->load();
-        auto maxBrightness = audioProcessor.parameters.getRawParameterValue("maxBrightness")->load();
-        auto generationMode = audioProcessor.parameters.getRawParameterValue("irGenerationMode")->load();
-        
-        DBG("length: " + juce::String(length)
-            + ", minDistance: " + juce::String(minDistance)
-            + ", maxDistance: " + juce::String(maxDistance));
-        
-        irGenerator.setLengthSeconds(length);
-        irGenerator.setMinDistance(minDistance);
-        irGenerator.setMaxDistance(maxDistance);
-        irGenerator.setMinBrightness(minBrightness);
-        irGenerator.setMaxBrightness(maxBrightness);
-        irGenerator.setMode(generationMode);
-
-        irGenerator.generate();
-        
-        juce::File file = juce::File::getSpecialLocation(juce::File::userApplicationDataDirectory)
-            .getChildFile("Stellaverb")
-            .getChildFile("generated_ir.wav");
-
-        irGenerator.saveToWav(file);
-        
-        // Load the generated IR file into the thumbnail
-        thumbnail.setSource(nullptr);
-        thumbnail.clear();
-        
-        thumbnail.setSource(new juce::FileInputSource(file));
-
-        
-        DBG(thumbnail.getTotalLength());
-        
-        waveformDisplay.repaint();
-        
-        DBG("Successfully generated IR");
-        
-        audioProcessor.prepareToPlay(audioProcessor.getSampleRate(), audioProcessor.getBlockSize());
+        regenerateIRAndRefresh();
     };
     
     auto sliders = { &length, &minDistance, &maxDistance, &minBrightness, &maxBrightness, &predelay, &width, &dryWet, &gain, &lowFreq, &highFreq, &drive};
@@ -226,10 +175,14 @@ StellaverbAudioProcessorEditor::StellaverbAudioProcessorEditor (StellaverbAudioP
     // Make sure that before the constructor has finished, you've set the
     // editor's size to whatever you need it to be.
     setSize(860, 520);
+    
+    startTimer(200);
 }
 
 StellaverbAudioProcessorEditor::~StellaverbAudioProcessorEditor()
 {
+    stopTimer();
+    
     setLookAndFeel(nullptr);
     irGenerationMode.setLookAndFeel(nullptr);
     irGenerationModeLabel.setLookAndFeel(nullptr);
@@ -245,6 +198,52 @@ StellaverbAudioProcessorEditor::~StellaverbAudioProcessorEditor()
         label->setLookAndFeel(nullptr);
     }
     
+}
+
+StellaverbAudioProcessorEditor::IRParameterValues StellaverbAudioProcessorEditor::readIRParameters() const
+{
+    return {{
+        audioProcessor.lengthParam->load(),
+        audioProcessor.minDistanceParam->load(),
+        audioProcessor.maxDistanceParam->load(),
+        audioProcessor.minBrightnessParam->load(),
+        audioProcessor.maxBrightnessParam->load(),
+        audioProcessor.irGenerationModeParam->load()
+    }};
+}
+
+void StellaverbAudioProcessorEditor::regenerateIRAndRefresh()
+{
+    const auto settings = readIRParameters();
+
+    if (!audioProcessor.generateIR())
+        return;
+
+    lastIRParameters = settings;
+    hasGeneratedIR = true;
+
+    const auto& buffer = audioProcessor.getGeneratedIRBuffer();
+
+    thumbnail.reset(
+        buffer.getNumChannels(),
+        44100.0,
+        buffer.getNumSamples());
+
+    thumbnail.addBlock(
+        0,
+        buffer,
+        0,
+        buffer.getNumSamples());
+
+    waveformDisplay.repaint();
+}
+
+void StellaverbAudioProcessorEditor::timerCallback()
+{
+    const auto settings = readIRParameters();
+
+    if (!hasGeneratedIR || settings != lastIRParameters)
+        regenerateIRAndRefresh();
 }
 
 //==============================================================================

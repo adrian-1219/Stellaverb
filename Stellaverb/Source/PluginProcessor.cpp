@@ -23,11 +23,62 @@ StellaverbAudioProcessor::StellaverbAudioProcessor()
                        ), parameters(*this, nullptr, "parameters", createParameterLayout())
 #endif
 {
+    lengthParam = parameters.getRawParameterValue("length");
+    minDistanceParam = parameters.getRawParameterValue("minDistance");
+    maxDistanceParam = parameters.getRawParameterValue("maxDistance");
+    minBrightnessParam = parameters.getRawParameterValue("minBrightness");
+    maxBrightnessParam = parameters.getRawParameterValue("maxBrightness");
+    irGenerationModeParam = parameters.getRawParameterValue("irGenerationMode");
+    
+    widthParam = parameters.getRawParameterValue("width");
+    preDelayParam = parameters.getRawParameterValue("preDelay");
+    lowFreqParam = parameters.getRawParameterValue("lowFreq");
+    highFreqParam = parameters.getRawParameterValue("highFreq");
+    driveParam = parameters.getRawParameterValue("drive");
+    dryWetParam = parameters.getRawParameterValue("dryWet");
+    
     formatManager.registerBasicFormats(); // WAV, AIFF, MP3, etc.
 }
 
 StellaverbAudioProcessor::~StellaverbAudioProcessor()
 {
+}
+
+juce::AudioBuffer<float> StellaverbAudioProcessor::buildIRFromCurrentParameters() const
+{
+    // Each call owns its generator and its working buffer.
+    IRGenerator generator { irSampleRate, 2 };
+
+    generator.setLengthSeconds(lengthParam->load());
+    generator.setMinDistance(minDistanceParam->load());
+    generator.setMaxDistance(maxDistanceParam->load());
+    generator.setMinBrightness(minBrightnessParam->load());
+    generator.setMaxBrightness(maxBrightnessParam->load());
+    generator.setMode(
+        static_cast<int>(irGenerationModeParam->load()));
+
+    generator.generate();
+
+    // Return independently owned samples.
+    juce::AudioBuffer<float> result;
+    result.makeCopyOf(generator.getBuffer());
+    return result;
+}
+
+bool StellaverbAudioProcessor::generateIR()
+{
+    auto nextIR = buildIRFromCurrentParameters();
+
+    // Keep a separate copy for the waveform.
+    // This function is still called only on the UI thread.
+    generatedIRBuffer.makeCopyOf(nextIR);
+
+    {
+        const juce::SpinLock::ScopedLockType lock(pendingIRLock);
+        std::swap(pendingIR, nextIR);
+    }
+
+    return true;
 }
 
 //==============================================================================
@@ -102,9 +153,6 @@ void StellaverbAudioProcessor::prepareToPlay (double sampleRate, int samplesPerB
     spec.sampleRate = sampleRate;
     spec.maximumBlockSize = samplesPerBlock;
     spec.numChannels = getTotalNumOutputChannels();
-    
-    // Convolution
-    convolution.prepare(spec);
         
     // Pre delay
     preDelayL.reset();
@@ -121,27 +169,25 @@ void StellaverbAudioProcessor::prepareToPlay (double sampleRate, int samplesPerB
     outputGain.prepare(spec);
     outputGain.setGainLinear(0.0f);
     
-    // Load an IR file (WAV)
-    juce::File irFile = juce::File::getSpecialLocation(juce::File::userApplicationDataDirectory)
-        .getChildFile("Stellaverb")
-        .getChildFile("generated_ir.wav");
-    
-    DBG("IR path: " << irFile.getFullPathName());
-    DBG("Exists before load: " << int(irFile.existsAsFile()));
-    
-    irFile.getParentDirectory().createDirectory();
-    
-    // If it doesn't exist, generate the default IR
-    if (!irFile.existsAsFile())
+    // Remove any pending update from before this preparation.
+    juce::AudioBuffer<float> discardedIR;
     {
-        DBG("IR file not found, generating new one...");
-        IRGenerator irGenerator = IRGenerator(44100.0f, 2);
-        irGenerator.generate();
-
-        irGenerator.saveToWav(irFile);
+        const juce::SpinLock::ScopedLockType lock(pendingIRLock);
+        std::swap(pendingIR, discardedIR);
     }
-    
-    convolution.loadImpulseResponse(irFile, juce::dsp::Convolution::Stereo::yes, juce::dsp::Convolution::Trim::no, irFile.getSize());
+
+    auto startupIR = buildIRFromCurrentParameters();
+
+    convolution.loadImpulseResponse(
+        std::move(startupIR),
+        irSampleRate,
+        juce::dsp::Convolution::Stereo::yes,
+        juce::dsp::Convolution::Trim::no,
+        juce::dsp::Convolution::Normalise::yes);
+
+    // Initialise the submitted response before audio processing starts.
+    convolution.prepare(spec);
+
     irReady = true;
 }
 
@@ -180,6 +226,25 @@ bool StellaverbAudioProcessor::isBusesLayoutSupported (const BusesLayout& layout
 void StellaverbAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::MidiBuffer& midiMessages)
 {
     juce::ScopedNoDenormals noDenormals;
+    
+    juce::AudioBuffer<float> nextIR;
+    {
+        const juce::SpinLock::ScopedTryLockType lock(pendingIRLock);
+        if (lock.isLocked() && pendingIR.getNumSamples() > 0)
+            std::swap(pendingIR, nextIR);
+    }
+
+    // The lock has been released before loading.
+    if (nextIR.getNumSamples() > 0)
+    {
+        convolution.loadImpulseResponse(
+            std::move(nextIR),
+            irSampleRate,
+            juce::dsp::Convolution::Stereo::yes,
+            juce::dsp::Convolution::Trim::no,
+            juce::dsp::Convolution::Normalise::yes);
+    }
+    
     auto totalNumInputChannels  = getTotalNumInputChannels();
     auto totalNumOutputChannels = getTotalNumOutputChannels();
 
@@ -209,12 +274,12 @@ void StellaverbAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, j
     if (irReady) // only process if the IR is ready
     {
         // load parameters
-        auto width = parameters.getRawParameterValue("width")->load();
-        auto preDelay = parameters.getRawParameterValue("preDelay")->load();
-        auto lowFrequency = parameters.getRawParameterValue("lowFreq")->load();
-        auto highFrequency = parameters.getRawParameterValue("highFreq")->load();
-        auto drive = parameters.getRawParameterValue("drive")->load();
-        auto dryWet = parameters.getRawParameterValue("dryWet")->load();
+        const float width = widthParam->load();
+        const float preDelay = preDelayParam->load();
+        const float lowFrequency = lowFreqParam->load();
+        const float highFrequency = highFreqParam->load();
+        const float drive = driveParam->load();
+        const float dryWet = dryWetParam->load();
         
         auto numSamples = block.getNumSamples();
         auto* left  = block.getChannelPointer(0);
