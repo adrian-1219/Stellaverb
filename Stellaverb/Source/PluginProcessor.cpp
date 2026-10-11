@@ -37,29 +37,46 @@ StellaverbAudioProcessor::StellaverbAudioProcessor()
     driveParam = parameters.getRawParameterValue("drive");
     dryWetParam = parameters.getRawParameterValue("dryWet");
     
+    const bool started = irWorker.startThread();
+    juce::ignoreUnused(started);
+    
     formatManager.registerBasicFormats(); // WAV, AIFF, MP3, etc.
 }
 
 StellaverbAudioProcessor::~StellaverbAudioProcessor()
 {
+    irWorker.signalThreadShouldExit();
+    irWorker.notify();
+    irWorker.waitForThreadToExit(-1);
 }
 
-juce::AudioBuffer<float> StellaverbAudioProcessor::buildIRFromCurrentParameters() const
+StellaverbAudioProcessor::IRSettings
+StellaverbAudioProcessor::readIRSettings() const
 {
-    // Each call owns its generator and its working buffer.
+    return {{
+        lengthParam->load(),
+        minDistanceParam->load(),
+        maxDistanceParam->load(),
+        minBrightnessParam->load(),
+        maxBrightnessParam->load(),
+        irGenerationModeParam->load()
+    }};
+}
+
+juce::AudioBuffer<float>
+StellaverbAudioProcessor::buildIR(const IRSettings& settings) const
+{
     IRGenerator generator { irSampleRate, 2 };
 
-    generator.setLengthSeconds(lengthParam->load());
-    generator.setMinDistance(minDistanceParam->load());
-    generator.setMaxDistance(maxDistanceParam->load());
-    generator.setMinBrightness(minBrightnessParam->load());
-    generator.setMaxBrightness(maxBrightnessParam->load());
-    generator.setMode(
-        static_cast<int>(irGenerationModeParam->load()));
+    generator.setLengthSeconds(settings[0]);
+    generator.setMinDistance(settings[1]);
+    generator.setMaxDistance(settings[2]);
+    generator.setMinBrightness(settings[3]);
+    generator.setMaxBrightness(settings[4]);
+    generator.setMode(static_cast<int>(settings[5]));
 
     generator.generate();
 
-    // Return independently owned samples.
     juce::AudioBuffer<float> result;
     result.makeCopyOf(generator.getBuffer());
     return result;
@@ -67,17 +84,48 @@ juce::AudioBuffer<float> StellaverbAudioProcessor::buildIRFromCurrentParameters(
 
 bool StellaverbAudioProcessor::generateIR()
 {
-    auto nextIR = buildIRFromCurrentParameters();
+    const juce::ScopedLock generationGuard(generationLock);
 
-    // Keep a separate copy for the waveform.
-    // This function is still called only on the UI thread.
-    generatedIRBuffer.makeCopyOf(nextIR);
+    const auto settings = readIRSettings();
+
+    if (hasGeneratedIR && settings == lastGeneratedSettings)
+        return false;
+
+    auto nextIR = buildIR(settings);
+
+    // Prepare the display copy outside its lock.
+    juce::AudioBuffer<float> nextDisplayIR;
+    nextDisplayIR.makeCopyOf(nextIR);
 
     {
-        const juce::SpinLock::ScopedLockType lock(pendingIRLock);
+        const juce::ScopedLock displayGuard(displayLock);
+        std::swap(generatedIRBuffer, nextDisplayIR);
+        ++displayVersion;
+    }
+
+    {
+        const juce::SpinLock::ScopedLockType pendingGuard(
+            pendingIRLock);
+
         std::swap(pendingIR, nextIR);
     }
 
+    lastGeneratedSettings = settings;
+    hasGeneratedIR = true;
+    return true;
+}
+
+bool StellaverbAudioProcessor::copyIRForDisplay(
+    juce::AudioBuffer<float>& destination,
+    juce::uint64& lastSeenVersion)
+{
+    const juce::ScopedLock displayGuard(displayLock);
+
+    if (displayVersion == lastSeenVersion)
+        return false;
+
+    destination.makeCopyOf(generatedIRBuffer);
+    lastSeenVersion = displayVersion;
     return true;
 }
 
@@ -160,33 +208,58 @@ void StellaverbAudioProcessor::prepareToPlay (double sampleRate, int samplesPerB
     preDelayL.prepare(spec);
     preDelayR.prepare(spec);
     preDelaySmoothed.reset(sampleRate, 0.05);
-    
+
     // Filters
-    lowPassFilter.prepare(spec);
+    lastLowFrequency = lowFreqParam->load();
+    lastHighFrequency = highFreqParam->load();
+    *highPassFilter.state =
+        juce::dsp::IIR::ArrayCoefficients<float>::makeHighPass(
+            sampleRate, lastLowFrequency, 0.707f);
+    *lowPassFilter.state =
+        juce::dsp::IIR::ArrayCoefficients<float>::makeLowPass(
+            sampleRate, lastHighFrequency, 0.707f);
     highPassFilter.prepare(spec);
+    lowPassFilter.prepare(spec);
 
     // Output Gain
     outputGain.prepare(spec);
     outputGain.setGainLinear(0.0f);
     
-    // Remove any pending update from before this preparation.
-    juce::AudioBuffer<float> discardedIR;
     {
-        const juce::SpinLock::ScopedLockType lock(pendingIRLock);
-        std::swap(pendingIR, discardedIR);
+        // Prevent the worker from publishing another IR while startup
+        // selects and prepares its initial response.
+        const juce::ScopedLock generationGuard(generationLock);
+
+        // Builds the cache only if missing or settings have changed.
+        // JUCE CriticalSection allows re-entry from the same thread.
+        generateIR();
+
+        juce::AudioBuffer<float> startupIR;
+
+        {
+            const juce::ScopedLock displayGuard(displayLock);
+            startupIR.makeCopyOf(generatedIRBuffer);
+        }
+
+        // This response will be loaded directly below, so discard
+        // the queued copy.
+        juce::AudioBuffer<float> discardedIR;
+        {
+            const juce::SpinLock::ScopedLockType pendingGuard(
+                pendingIRLock);
+
+            std::swap(pendingIR, discardedIR);
+        }
+
+        convolution.loadImpulseResponse(
+            std::move(startupIR),
+            irSampleRate,
+            juce::dsp::Convolution::Stereo::yes,
+            juce::dsp::Convolution::Trim::no,
+            juce::dsp::Convolution::Normalise::yes);
+
+        convolution.prepare(spec);
     }
-
-    auto startupIR = buildIRFromCurrentParameters();
-
-    convolution.loadImpulseResponse(
-        std::move(startupIR),
-        irSampleRate,
-        juce::dsp::Convolution::Stereo::yes,
-        juce::dsp::Convolution::Trim::no,
-        juce::dsp::Convolution::Normalise::yes);
-
-    // Initialise the submitted response before audio processing starts.
-    convolution.prepare(spec);
 
     irReady = true;
 }
@@ -208,8 +281,7 @@ bool StellaverbAudioProcessor::isBusesLayoutSupported (const BusesLayout& layout
     // In this template code we only support mono or stereo.
     // Some plugin hosts, such as certain GarageBand versions, will only
     // load plugins that support stereo bus layouts.
-    if (layouts.getMainOutputChannelSet() != juce::AudioChannelSet::mono()
-     && layouts.getMainOutputChannelSet() != juce::AudioChannelSet::stereo())
+    if (layouts.getMainOutputChannelSet() != juce::AudioChannelSet::stereo())
         return false;
 
     // This checks if the input layout matches the output layout
@@ -309,8 +381,18 @@ void StellaverbAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, j
         convolution.process(context);
         
         // eq
-        *highPassFilter.state = *juce::dsp::IIR::Coefficients<float>::makeHighPass(sampleRate, lowFrequency, 0.707f);
-        *lowPassFilter.state = *juce::dsp::IIR::Coefficients<float>::makeLowPass(sampleRate, highFrequency, 0.707f);
+        if (lowFrequency != lastLowFrequency)
+        {
+            *highPassFilter.state = juce::dsp::IIR::ArrayCoefficients<float>::makeHighPass(
+                    sampleRate, lowFrequency, 0.707f);
+            lastLowFrequency = lowFrequency;
+        }
+        if (highFrequency != lastHighFrequency)
+        {
+            *lowPassFilter.state = juce::dsp::IIR::ArrayCoefficients<float>::makeLowPass(
+                    sampleRate, highFrequency, 0.707f);
+            lastHighFrequency = highFrequency;
+        }
         highPassFilter.process(context);
         lowPassFilter.process(context);
         
@@ -370,17 +452,47 @@ juce::AudioProcessorEditor* StellaverbAudioProcessor::createEditor()
 }
 
 //==============================================================================
-void StellaverbAudioProcessor::getStateInformation (juce::MemoryBlock& destData)
+void StellaverbAudioProcessor::getStateInformation(juce::MemoryBlock& destData)
 {
-    // You should use this method to store your parameters in the memory block.
-    // You could do that either as raw data, or use the XML or ValueTree classes
-    // as intermediaries to make it easy to save and load complex data.
+    auto state = parameters.copyState();
+
+    if (auto xml = state.createXml())
+        copyXmlToBinary(*xml, destData);
 }
 
-void StellaverbAudioProcessor::setStateInformation (const void* data, int sizeInBytes)
+void StellaverbAudioProcessor::setStateInformation(const void* data, int sizeInBytes)
 {
-    // You should use this method to restore your parameters from this memory block,
-    // whose contents will have been created by the getStateInformation() call.
+    if (data == nullptr || sizeInBytes <= 0)
+        return;
+
+    auto xml = getXmlFromBinary(data, sizeInBytes);
+
+    if (xml == nullptr || !xml->hasTagName("parameters"))
+        return;
+
+    auto restoredState = juce::ValueTree::fromXml(*xml);
+
+    if (!restoredState.isValid())
+        return;
+
+    juce::AudioBuffer<float> discardedIR;
+
+    {
+        const juce::ScopedLock generationGuard(generationLock);
+
+        parameters.replaceState(restoredState);
+        // Ensure the next generation uses the restored settings.
+        hasGeneratedIR = false;
+
+        // Remove an update queued before this restoration.
+        {
+            const juce::SpinLock::ScopedLockType pendingGuard(pendingIRLock);
+            std::swap(pendingIR, discardedIR);
+        }
+    }
+
+    // Wake the worker instead of waiting for its next polling interval.
+    irWorker.notify();
 }
 
 //==============================================================================

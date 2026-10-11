@@ -41,10 +41,11 @@ StellaverbAudioProcessorEditor::StellaverbAudioProcessorEditor (StellaverbAudioP
     setLookAndFeel(&customLook);
     
     addAndMakeVisible(waveformDisplay);
-    addAndMakeVisible(generateButton);
-    generateButton.onClick = [this]()
+    addAndMakeVisible(exportButton);
+    
+    exportButton.onClick = [this]()
     {
-        regenerateIRAndRefresh();
+        exportIR();
     };
     
     auto sliders = { &length, &minDistance, &maxDistance, &minBrightness, &maxBrightness, &predelay, &width, &dryWet, &gain, &lowFreq, &highFreq, &drive};
@@ -169,6 +170,19 @@ StellaverbAudioProcessorEditor::StellaverbAudioProcessorEditor (StellaverbAudioP
     irGenerationMode.onChange();
     
     loadStarData();
+
+    std::vector<StarGUI> subset;
+
+    const size_t count = std::min(stars.size(), size_t { 1000 });
+    subset.reserve(count);
+
+    for (size_t i = 0; i < count; ++i)
+    {
+        const size_t index = i * stars.size() / count;
+        subset.push_back(stars[index]);
+    }
+
+    stars = std::move(subset);
     
     addAndMakeVisible(starDisplay);
 
@@ -176,12 +190,14 @@ StellaverbAudioProcessorEditor::StellaverbAudioProcessorEditor (StellaverbAudioP
     // editor's size to whatever you need it to be.
     setSize(860, 520);
     
+    refreshWaveformFromCache();
     startTimer(200);
 }
 
 StellaverbAudioProcessorEditor::~StellaverbAudioProcessorEditor()
 {
     stopTimer();
+    exportChooser.reset();
     
     setLookAndFeel(nullptr);
     irGenerationMode.setLookAndFeel(nullptr);
@@ -200,29 +216,123 @@ StellaverbAudioProcessorEditor::~StellaverbAudioProcessorEditor()
     
 }
 
-StellaverbAudioProcessorEditor::IRParameterValues StellaverbAudioProcessorEditor::readIRParameters() const
+bool StellaverbAudioProcessorEditor::writeIRToWav(
+    const juce::File& destination,
+    const juce::AudioBuffer<float>& buffer)
 {
-    return {{
-        audioProcessor.lengthParam->load(),
-        audioProcessor.minDistanceParam->load(),
-        audioProcessor.maxDistanceParam->load(),
-        audioProcessor.minBrightnessParam->load(),
-        audioProcessor.maxBrightnessParam->load(),
-        audioProcessor.irGenerationModeParam->load()
-    }};
+    // Write a temporary file first, then replace the destination
+    // only after writing succeeds.
+    juce::TemporaryFile temporaryFile(destination);
+
+    auto stream = temporaryFile.getFile().createOutputStream();
+
+    if (stream == nullptr || !stream->openedOk())
+        return false;
+
+    juce::WavAudioFormat format;
+
+    std::unique_ptr<juce::AudioFormatWriter> writer(
+        format.createWriterFor(stream.get(), 44100.0, static_cast<unsigned int>(buffer.getNumChannels()),
+            24, {}, 0));
+
+    if (writer == nullptr)
+        return false;
+
+    // The writer now owns the stream.
+    stream.release();
+    const bool written = writer->writeFromAudioSampleBuffer(buffer, 0, buffer.getNumSamples());
+    const bool flushed = writer->flush();
+
+    // Close the writer before moving the temporary file.
+    writer.reset();
+
+    if (!written || !flushed)
+        return false;
+
+    return temporaryFile.overwriteTargetFileWithTemporary();
 }
 
-void StellaverbAudioProcessorEditor::regenerateIRAndRefresh()
+void StellaverbAudioProcessorEditor::exportIR()
 {
-    const auto settings = readIRParameters();
+    // Keep this snapshot alive until the dialog finishes.
+    auto snapshot =
+        std::make_shared<juce::AudioBuffer<float>>();
 
-    if (!audioProcessor.generateIR())
+    juce::uint64 version = 0;
+
+    if (!audioProcessor.copyIRForDisplay(*snapshot, version)
+        || snapshot->getNumSamples() == 0)
+    {
+        juce::AlertWindow::showMessageBoxAsync(
+            juce::AlertWindow::WarningIcon,
+            "No IR available",
+            "Wait for an impulse response to finish generating.");
+
         return;
+    }
 
-    lastIRParameters = settings;
-    hasGeneratedIR = true;
+    exportChooser = std::make_unique<juce::FileChooser>(
+        "Export impulse response",
+        juce::File::getSpecialLocation(
+            juce::File::userDocumentsDirectory)
+            .getChildFile("Stellaverb IR.wav"),
+        "*.wav");
 
-    const auto& buffer = audioProcessor.getGeneratedIRBuffer();
+    exportButton.setEnabled(false);
+
+    juce::Component::SafePointer<
+        StellaverbAudioProcessorEditor> safeThis(this);
+
+    const int flags =
+        juce::FileBrowserComponent::saveMode
+        | juce::FileBrowserComponent::canSelectFiles
+        | juce::FileBrowserComponent::warnAboutOverwriting;
+
+    exportChooser->launchAsync(
+        flags,
+        [safeThis, snapshot](const juce::FileChooser& chooser)
+        {
+            if (safeThis == nullptr)
+                return;
+
+            safeThis->exportButton.setEnabled(true);
+
+            const auto destination = chooser.getResult();
+
+            // The user cancelled.
+            if (destination == juce::File())
+                return;
+
+            // Keep the exact filename chosen in the dialog,
+            // including its overwrite confirmation.
+            if (!destination.hasFileExtension("wav"))
+            {
+                juce::AlertWindow::showMessageBoxAsync(
+                    juce::AlertWindow::WarningIcon,
+                    "Use a WAV filename",
+                    "Please export again with a filename ending in .wav.");
+
+                return;
+            }
+
+            if (!writeIRToWav(destination, *snapshot))
+            {
+                juce::AlertWindow::showMessageBoxAsync(
+                    juce::AlertWindow::WarningIcon,
+                    "Export failed",
+                    "Could not write the WAV file. "
+                    "Check the destination and available disk space.");
+            }
+        });
+}
+
+void StellaverbAudioProcessorEditor::refreshWaveformFromCache()
+{
+    juce::AudioBuffer<float> buffer;
+
+    if (!audioProcessor.copyIRForDisplay(
+            buffer, lastDisplayedIRVersion))
+        return;
 
     thumbnail.reset(
         buffer.getNumChannels(),
@@ -240,10 +350,7 @@ void StellaverbAudioProcessorEditor::regenerateIRAndRefresh()
 
 void StellaverbAudioProcessorEditor::timerCallback()
 {
-    const auto settings = readIRParameters();
-
-    if (!hasGeneratedIR || settings != lastIRParameters)
-        regenerateIRAndRefresh();
+    refreshWaveformFromCache();
 }
 
 //==============================================================================
@@ -316,7 +423,7 @@ void StellaverbAudioProcessorEditor::resized()
     
     int btnY = y + sliderHeight + 40; // Spacing below top row
     irGenerationMode.setBounds(btnX, btnY, comboWidth, btnHeight);
-    generateButton.setBounds(btnX + comboWidth + padding, btnY, btnWidth, btnHeight);
+    exportButton.setBounds(btnX + comboWidth + padding, btnY, btnWidth, btnHeight);
     
     // Middle row (4 options)
     int row1Y = btnY + btnHeight + 40;

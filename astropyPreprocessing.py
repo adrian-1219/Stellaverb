@@ -3,7 +3,7 @@ from astropy.table import Table
 import numpy as np
 from scipy.io import wavfile
 
-MAX_STARS = 1000000         
+MAX_STARS = 100000         
 
 tbl = Table.read("gaia_subset_parallax_7.fits")
 tbl['distance_pc'] = 1000.0 / tbl['parallax']
@@ -60,15 +60,15 @@ left  = np.sqrt(0.5 * (1 - pan))
 right = np.sqrt(0.5 * (1 + pan))
 
 # Stack → float32
-data = np.stack([left, right, amplitude, distance, azimuth], axis=1).astype('<f4')
+data = np.stack([left, right, amplitude, distance, azimuth, x, y, z], axis=1).astype('<f4')
 
 # Save as binary for performance 
 np.asarray(data).astype('<f4').tofile("stars_sorted.bin")
 
 # Verify it saved correctly
 data = np.fromfile("stars_sorted.bin", dtype='<f4')
-print(data.shape)  # should be N * 5
-data = data.reshape((-1, 5))
+print(data.shape)  # should be N * 8
+data = data.reshape((-1, 8))
 print(data[:5])  # inspect first few rows
 
 print(np.min(left), np.max(left))

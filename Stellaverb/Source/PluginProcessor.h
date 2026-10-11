@@ -73,8 +73,6 @@ public:
     std::atomic<float>* highFreqParam;
     std::atomic<float>* driveParam;
     std::atomic<float>* dryWetParam;
-    
-    bool generateIR();
 
     // JUCE dsp modules
     juce::dsp::Convolution convolution;
@@ -98,6 +96,10 @@ public:
         return generatedIRBuffer;
     }
     
+    bool copyIRForDisplay(
+        juce::AudioBuffer<float>& destination,
+        juce::uint64& lastSeenVersion);
+    
 
 private:
     //==============================================================================
@@ -105,11 +107,50 @@ private:
     
     static constexpr double irSampleRate = 44100.0;
 
-    juce::AudioBuffer<float> buildIRFromCurrentParameters() const;
+    using IRSettings = std::array<float, 6>;
 
-    // Used only by the UI for the waveform.
-    juce::AudioBuffer<float> generatedIRBuffer;
+    IRSettings readIRSettings() const;
+    juce::AudioBuffer<float> buildIR(const IRSettings& settings) const;
+    bool generateIR();
     
+    float lastLowFrequency = -1.0f;
+    float lastHighFrequency = -1.0f;
+
+    // Serialises startup generation and worker generation.
+    juce::CriticalSection generationLock;
+    IRSettings lastGeneratedSettings {};
+    bool hasGeneratedIR = false;
+
+    // Waveform cache shared with the editor.
+    juce::CriticalSection displayLock;
+    juce::AudioBuffer<float> generatedIRBuffer;
+    juce::uint64 displayVersion = 0;
+
     juce::SpinLock pendingIRLock;
     juce::AudioBuffer<float> pendingIR;
+
+    class IRWorker final : public juce::Thread
+    {
+    public:
+        explicit IRWorker(StellaverbAudioProcessor& processor)
+            : juce::Thread("Stellaverb IR worker"),
+              owner(processor)
+        {
+        }
+
+        void run() override
+        {
+            while (!threadShouldExit())
+            {
+                owner.generateIR();
+                wait(200);
+            }
+        }
+
+    private:
+        StellaverbAudioProcessor& owner;
+    };
+
+    // Keep this after the members the worker accesses.
+    IRWorker irWorker { *this };
 };

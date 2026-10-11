@@ -4,9 +4,7 @@
               addUsingNamespaceToJuceHeader="0" jucerFormatVersion="1">
   <MAINGROUP id="zAIKHU" name="Stellaverb">
     <GROUP id="{D0FC7BEB-203D-0F13-A0EA-6D93AFF219A2}" name="Resources">
-      <FILE id="HRWx2P" name="stars_sorted_GUI.bin" compile="0" resource="1"
-            file="Source/stars_sorted_GUI.bin"/>
-      <FILE id="v490wK" name="stars_sorted.bin" compile="0" resource="1"
+      <FILE id="D1NC8F" name="stars_sorted.bin" compile="0" resource="1"
             file="Source/stars_sorted.bin"/>
     </GROUP>
     <GROUP id="{88B177CC-4518-6E33-83DA-73272A8E4740}" name="Source">

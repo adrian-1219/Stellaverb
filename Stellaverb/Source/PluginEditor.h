@@ -10,6 +10,7 @@
 
 #include <JuceHeader.h>
 #include "PluginProcessor.h"
+#include "IRGenerator.h"
 
 //==============================================================================
 /**
@@ -56,22 +57,14 @@ public:
     void paint (juce::Graphics&) override;
     void resized() override;
     
-    struct StarGUI
-    {
-        float x;
-        float y;
-        float z;
-        float amplitude;
-        float distance;
-        float azimuth;
-    };
+    using StarGUI = IRGenerator::Star;
     
     std::vector<StarGUI> stars;
     
     void loadStarData()
     {
-        const void* rawData = BinaryData::stars_sorted_GUI_bin;
-        size_t dataSize = BinaryData::stars_sorted_GUI_binSize;
+        const void* rawData = BinaryData::stars_sorted_bin;
+        size_t dataSize = BinaryData::stars_sorted_binSize;
         size_t count = dataSize / sizeof(StarGUI);
         stars.resize(count);
         std::memcpy(stars.data(), rawData, dataSize);
@@ -146,6 +139,7 @@ private:
 
         void paint(juce::Graphics& g) override
         {
+            
             g.setColour(juce::Colours::black);
             g.fillEllipse(getLocalBounds().toFloat());
             
@@ -158,15 +152,19 @@ private:
             
             for (const auto& star : starsRef)
             {
-                if (star.distance > maxDistance or star.distance < minDistance or star.amplitude < minBrightness or star.amplitude > maxBrightness) {
+                if (star.distance < minDistance
+                    || star.distance > maxDistance
+                    || star.amplitude < minBrightness
+                    || star.amplitude > maxBrightness)
+                {
                     continue;
                 }
                 
                 float r = star.distance;
 
-                float cx = (star.x - 0.5f) * r * scale;
-                float cy = (star.y - 0.5f) * r * scale;
-                float cz = (star.z - 0.5f) * r * scale;
+                float cx = star.x * 0.5f * r * scale;
+                float cy = star.y * 0.5f * r * scale;
+                float cz = star.z * 0.5f * r * scale;
 
                 // Rotate around Y axis
                 float rx = cx * cosRot - cz * sinRot;
@@ -232,7 +230,7 @@ private:
         float minBrightness = 0.0f;
     };
 
-    juce::TextButton generateButton { "Generate IR" };
+    juce::TextButton exportButton { "Export IR" };
     
     StellaverbAudioProcessor& audioProcessor;
     juce::Slider length, minDistance, maxDistance, minBrightness, maxBrightness;
@@ -254,14 +252,15 @@ private:
     
     CustomLookAndFeel customLook;
     
-    using IRParameterValues = std::array<float, 6>;
-    
-    IRParameterValues readIRParameters() const;
-    void regenerateIRAndRefresh();
     void timerCallback() override;
+    void refreshWaveformFromCache();
+    juce::uint64 lastDisplayedIRVersion = 0;
     
-    IRParameterValues lastIRParameters {};
-    bool hasGeneratedIR = false;
+    static bool writeIRToWav(
+        const juce::File& destination,
+        const juce::AudioBuffer<float>& buffer);
+    std::unique_ptr<juce::FileChooser> exportChooser;
+    void exportIR();
     
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (StellaverbAudioProcessorEditor)
 };

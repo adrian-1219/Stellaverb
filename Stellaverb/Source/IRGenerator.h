@@ -118,11 +118,11 @@ public:
                 float env = 1;
                 if (generationMode == 0)
                 {
-                    env = std::exp(-10.0f * t);
+                    env = std::exp(-3.0f * t);
                 }
-                else if (generationMode == 1) // reverse mode not working yet
+                else if (generationMode == 1)
                 {
-                    env = std::exp(-2.0f * (1-t));
+                    env = std::exp(-3.0f * (1-t));
                 }
                 
                 data[i] = data[i] * env;
@@ -178,6 +178,9 @@ public:
         float amplitude;
         float distance;
         float azimuth;
+        float x;
+        float y;
+        float z;
     };
     
     std::vector<Star> stars;
