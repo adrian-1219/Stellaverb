@@ -143,52 +143,65 @@ private:
             g.setColour(juce::Colours::black);
             g.fillEllipse(getLocalBounds().toFloat());
             
-            float halfW = getWidth() * 0.5f;
-            float halfH = getHeight() * 0.5f;
-            float cosRot = std::cos(rotation);
-            float sinRot = std::sin(rotation);
-            
-            float scale = 1.0f; // Constant scale so it doesn't zoom in/out
-            
-            for (const auto& star : starsRef)
+            // If range is invalid, display no stars selected message, otherwise draw the stars
+            if (maxDistance <= minDistance
+                || maxBrightness < minBrightness)
             {
-                if (star.distance < minDistance
-                    || star.distance > maxDistance
-                    || star.amplitude < minBrightness
-                    || star.amplitude > maxBrightness)
+                g.setColour(juce::Colours::white.withAlpha(0.7f));
+                g.setFont(16.0f);
+
+                g.drawText(
+                    "[No stars selected]",
+                    getLocalBounds(),
+                    juce::Justification::centred);
+            } else {
+                float halfW = getWidth() * 0.5f;
+                float halfH = getHeight() * 0.5f;
+                float cosRot = std::cos(rotation);
+                float sinRot = std::sin(rotation);
+                
+                float scale = 1.0f; // Constant scale so it doesn't zoom in/out
+                
+                for (const auto& star : starsRef)
                 {
-                    continue;
+                    if (star.distance < minDistance
+                        || star.distance > maxDistance
+                        || star.amplitude < minBrightness
+                        || star.amplitude > maxBrightness)
+                    {
+                        continue;
+                    }
+                    
+                    float r = star.distance;
+
+                    float cx = star.x * 0.5f * r * scale;
+                    float cy = star.y * 0.5f * r * scale;
+                    float cz = star.z * 0.5f * r * scale;
+
+                    // Rotate around Y axis
+                    float rx = cx * cosRot - cz * sinRot;
+                    float rz = cx * sinRot + cz * cosRot;
+                    
+                    // Tilt forward slightly (rotate around X axis)
+                    float tiltCos = 0.866f; // cos(30 deg)
+                    float tiltSin = 0.5f;   // sin(30 deg)
+                    
+                    float ry = cy * tiltCos - rz * tiltSin;
+                    float finalZ = cy * tiltSin + rz * tiltCos;
+
+                    // Perspective projection
+                    float zDistance = 1.5f;
+                    float zFactor = zDistance / (zDistance + finalZ);
+                    
+                    float px = halfW + (rx * halfW * zFactor * 1.5f);
+                    float py = halfH + (ry * halfH * zFactor * 1.5f);
+                    
+                    float alpha = juce::jlimit(0.1f, 1.0f, zFactor * 0.8f);
+                    g.setColour(juce::Colours::white.withAlpha(alpha));
+                    
+                    float size = 2.0f * zFactor;
+                    g.fillEllipse(px - size * 0.5f, py - size * 0.5f, size, size);
                 }
-                
-                float r = star.distance;
-
-                float cx = star.x * 0.5f * r * scale;
-                float cy = star.y * 0.5f * r * scale;
-                float cz = star.z * 0.5f * r * scale;
-
-                // Rotate around Y axis
-                float rx = cx * cosRot - cz * sinRot;
-                float rz = cx * sinRot + cz * cosRot;
-                
-                // Tilt forward slightly (rotate around X axis)
-                float tiltCos = 0.866f; // cos(30 deg)
-                float tiltSin = 0.5f;   // sin(30 deg)
-                
-                float ry = cy * tiltCos - rz * tiltSin;
-                float finalZ = cy * tiltSin + rz * tiltCos;
-
-                // Perspective projection
-                float zDistance = 1.5f;
-                float zFactor = zDistance / (zDistance + finalZ);
-                
-                float px = halfW + (rx * halfW * zFactor * 1.5f);
-                float py = halfH + (ry * halfH * zFactor * 1.5f);
-                
-                float alpha = juce::jlimit(0.1f, 1.0f, zFactor * 0.8f);
-                g.setColour(juce::Colours::white.withAlpha(alpha));
-                
-                float size = 2.0f * zFactor;
-                g.fillEllipse(px - size * 0.5f, py - size * 0.5f, size, size);
             }
             
             // Draw Ruler Axes

@@ -164,7 +164,13 @@ bool StellaverbAudioProcessor::isMidiEffect() const
 
 double StellaverbAudioProcessor::getTailLengthSeconds() const
 {
-    return 0.0;
+    constexpr double maxIRSeconds = 5.0;
+    constexpr double maxPreDelaySeconds = 0.2;
+    constexpr double settlingAllowanceSeconds = 0.3;
+
+    return maxIRSeconds
+         + maxPreDelaySeconds
+         + settlingAllowanceSeconds;
 }
 
 int StellaverbAudioProcessor::getNumPrograms()
