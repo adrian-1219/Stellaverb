@@ -35,6 +35,17 @@ public:
 
     juce::Font getTextButtonFont (juce::TextButton&, int buttonHeight) override;
     juce::Font getPopupMenuFont() override;
+    void drawPopupMenuSectionHeader(juce::Graphics& g,
+                                    const juce::Rectangle<int>& area,
+                                    const juce::String& sectionName) override
+    {
+        g.setFont(getPopupMenuFont());
+        g.setColour(findColour(juce::PopupMenu::headerTextColourId));
+        g.drawFittedText(sectionName,
+                         area.getX() + 12, area.getY(), area.getWidth() - 16,
+                         static_cast<int>(area.getHeight() * 0.8f),
+                         juce::Justification::bottomLeft, 1);
+    }
     juce::Font getComboBoxFont (juce::ComboBox& box) override;
 
     juce::Path getTickShape (float height) override;
@@ -281,7 +292,7 @@ private:
     
     juce::TextButton presetButton { "Default" };
     juce::Label presetLabel;
-    std::unique_ptr<juce::AlertWindow> presetSaveDialog;
+    std::unique_ptr<juce::FileChooser> presetSaveChooser;
 
     void updatePresetButton();
     void showPresetMenu();

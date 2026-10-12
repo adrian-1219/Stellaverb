@@ -305,7 +305,7 @@ StellaverbAudioProcessorEditor::~StellaverbAudioProcessorEditor()
 {
     stopTimer();
     exportChooser.reset();
-    presetSaveDialog.reset();
+    presetSaveChooser.reset();
     
     setLookAndFeel(nullptr);
     irGenerationMode.setLookAndFeel(nullptr);
@@ -654,7 +654,16 @@ void StellaverbAudioProcessorEditor::showPresetMenu()
 {
     // Re-read each time so presets saved in another instance also appear.
     const auto names = audioProcessor.presetManager.getPresetNames();
+    // Keep the menu theme alive until the asynchronous popup has closed.
+    auto menuLook = std::make_shared<CustomLookAndFeel>();
+    for (const auto colourID : { juce::PopupMenu::backgroundColourId,
+                                 juce::PopupMenu::textColourId,
+                                 juce::PopupMenu::highlightedBackgroundColourId,
+                                 juce::PopupMenu::highlightedTextColourId })
+        menuLook->setColour(colourID, customLook.findColour(colourID));
+
     juce::PopupMenu menu;
+    menu.setLookAndFeel(menuLook.get());
     menu.addItem(1, "Save preset as...");
     menu.addSeparator();
     menu.addSectionHeader("USER PRESETS");
@@ -663,13 +672,15 @@ void StellaverbAudioProcessorEditor::showPresetMenu()
         menu.addItem(2, "No presets saved", false);
     else
         for (int i = 0; i < names.size(); ++i)
-            menu.addItem(i + 2, names[i]);
+            menu.addItem(i + 2, names[i], true,
+                         names[i] == audioProcessor.presetManager.getCurrentPresetName());
 
     juce::Component::SafePointer<StellaverbAudioProcessorEditor> safeThis(this);
     menu.showMenuAsync(
         juce::PopupMenu::Options().withTargetComponent(&presetButton)
+                                 .withStandardItemHeight(30)
                                  .withDeletionCheck(*this),
-        [safeThis, names](int result)
+        [safeThis, names, menuLook](int result)
         {
             if (safeThis == nullptr || result == 0)
                 return;
@@ -698,44 +709,51 @@ void StellaverbAudioProcessorEditor::showPresetMenu()
 
 void StellaverbAudioProcessorEditor::showSavePresetDialog()
 {
-    if (presetSaveDialog != nullptr)
+    if (!presetButton.isEnabled())
         return;
 
-    presetSaveDialog = std::make_unique<juce::AlertWindow>(
-        "Save preset as...", "Enter a new preset name.",
-        juce::AlertWindow::NoIcon, this);
+    auto& manager = audioProcessor.presetManager;
+    const auto folder = manager.getPresetFolder();
+    const auto created = folder.createDirectory();
+    if (created.failed())
+    {
+        juce::AlertWindow::showMessageBoxAsync(
+            juce::AlertWindow::WarningIcon, "Could not open preset folder",
+            created.getErrorMessage());
+        return;
+    }
 
-    presetSaveDialog->addTextEditor("name", "", "Preset name:");
-    presetSaveDialog->getTextEditor("name")->setInputRestrictions(
-        80, "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789 _-");
-    presetSaveDialog->addButton("Save", 1, juce::KeyPress(juce::KeyPress::returnKey));
-    presetSaveDialog->addButton("Cancel", 0, juce::KeyPress(juce::KeyPress::escapeKey));
+    const auto filename = juce::File::createLegalFileName(
+        manager.getCurrentPresetName()) + ".preset";
+    presetSaveChooser = std::make_unique<juce::FileChooser>(
+        "Save preset as...", folder.getChildFile(filename), "*.preset", true);
+    presetButton.setEnabled(false);
 
     juce::Component::SafePointer<StellaverbAudioProcessorEditor> safeThis(this);
-    presetSaveDialog->enterModalState(
-        true,
-        juce::ModalCallbackFunction::create([safeThis](int result)
+    presetSaveChooser->launchAsync(
+        juce::FileBrowserComponent::saveMode
+            | juce::FileBrowserComponent::canSelectFiles
+            | juce::FileBrowserComponent::warnAboutOverwriting,
+        [safeThis](const juce::FileChooser& chooser)
         {
-            if (safeThis == nullptr || safeThis->presetSaveDialog == nullptr)
+            if (safeThis == nullptr)
                 return;
 
-            const auto name = safeThis->presetSaveDialog
-                ->getTextEditorContents("name").trim();
-            safeThis->presetSaveDialog.reset();
-
-            if (result != 1)
+            safeThis->presetButton.setEnabled(true);
+            const auto destination = chooser.getResult();
+            if (destination == juce::File())
                 return;
 
-            const auto saved = safeThis->audioProcessor.presetManager.savePreset(name);
+            // Save to the exact path whose overwrite the native dialog confirmed.
+            const auto saved = safeThis->audioProcessor.presetManager
+                .savePresetToFile(destination, true);
             safeThis->updatePresetButton();
 
-            juce::AlertWindow::showMessageBoxAsync(
-                saved.wasOk() ? juce::AlertWindow::InfoIcon
-                              : juce::AlertWindow::WarningIcon,
-                saved.wasOk() ? "Preset saved" : "Could not save preset",
-                saved.wasOk() ? "Saved preset: " + name : saved.getErrorMessage());
-        }),
-        false);
+            if (saved.failed())
+                juce::AlertWindow::showMessageBoxAsync(
+                    juce::AlertWindow::WarningIcon, "Could not save preset",
+                    saved.getErrorMessage());
+        });
 }
 
 void CustomLookAndFeel::drawRotarySlider(juce::Graphics& g,

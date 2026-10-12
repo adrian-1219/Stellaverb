@@ -32,14 +32,26 @@ public:
 
         if (!isValidName(cleanName))
             return juce::Result::fail(
-                "Use letters, numbers, spaces, hyphens or underscores.");
+                "Please enter a valid preset filename.");
 
-        const auto directoryResult = folder.createDirectory();
+        return savePresetToFile(getPresetFile(cleanName), overwrite);
+    }
 
+    const juce::File& getPresetFolder() const { return folder; }
+
+    juce::Result savePresetToFile(const juce::File& file,
+                                bool overwrite = false)
+    {
+        if (!file.hasFileExtension("preset"))
+            return juce::Result::fail("Please use a filename ending in .preset.");
+
+        const auto cleanName = file.getFileNameWithoutExtension();
+        if (!isValidName(cleanName))
+            return juce::Result::fail("Invalid preset name.");
+
+        const auto directoryResult = file.getParentDirectory().createDirectory();
         if (directoryResult.failed())
             return directoryResult;
-
-        const auto file = getPresetFile(cleanName);
 
         if (file.exists() && !overwrite)
             return juce::Result::fail("A preset with this name already exists.");
@@ -139,11 +151,9 @@ private:
     static bool isValidName(const juce::String& name)
     {
         return name.isNotEmpty()
-            && name.length() <= 80
-            && name.containsOnly(
-                "abcdefghijklmnopqrstuvwxyz"
-                "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
-                "0123456789 _-");
+            && name != "." && name != ".."
+            && !name.containsAnyOf("/\\")
+            && juce::File::createLegalFileName(name) == name;
     }
 
     juce::File getPresetFile(const juce::String& name) const

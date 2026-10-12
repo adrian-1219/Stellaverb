@@ -64,8 +64,9 @@ public:
         "adrianlam.stellaverb",
         juce::File::getSpecialLocation(
             juce::File::userApplicationDataDirectory)
-            .getChildFile("Stellaverb")
+            .getChildFile("Audio")
             .getChildFile("Presets")
+            .getChildFile("Stellaverb")
     };
     
     // IR params
