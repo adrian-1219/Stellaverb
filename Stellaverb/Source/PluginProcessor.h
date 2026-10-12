@@ -11,6 +11,7 @@
 #include <JuceHeader.h>
 #include "IRGenerator.h"
 #include <array>
+#include "PresetManager.h"
 
 //==============================================================================
 /**
@@ -58,6 +59,15 @@ public:
     juce::AudioProcessorValueTreeState::ParameterLayout createParameterLayout();
     juce::AudioProcessorValueTreeState parameters;
     
+    PresetManager presetManager {
+        *this,
+        "adrianlam.stellaverb",
+        juce::File::getSpecialLocation(
+            juce::File::userApplicationDataDirectory)
+            .getChildFile("Stellaverb")
+            .getChildFile("Presets")
+    };
+    
     // IR params
     std::atomic<float>* lengthParam;
     std::atomic<float>* minDistanceParam;
@@ -75,7 +85,7 @@ public:
     std::atomic<float>* dryWetParam;
 
     // JUCE dsp modules
-    juce::dsp::Convolution convolution;
+    juce::dsp::Convolution convolution {juce::dsp::Convolution::NonUniform { 1024 }};
     juce::dsp::Gain<float> outputGain;
     juce::dsp::DelayLine<float, juce::dsp::DelayLineInterpolationTypes::Linear> preDelayL { 192000 };
     juce::dsp::DelayLine<float, juce::dsp::DelayLineInterpolationTypes::Linear> preDelayR { 192000 };
@@ -106,11 +116,13 @@ private:
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (StellaverbAudioProcessor)
     
     static constexpr double irSampleRate = 44100.0;
+    
+    IRGenerator generator { irSampleRate, 2 };
 
     using IRSettings = std::array<float, 6>;
 
     IRSettings readIRSettings() const;
-    juce::AudioBuffer<float> buildIR(const IRSettings& settings) const;
+    juce::AudioBuffer<float> buildIR(const IRSettings& settings);
     bool generateIR();
     
     float lastLowFrequency = -1.0f;

@@ -8,6 +8,7 @@
             file="Source/stars_sorted.bin"/>
     </GROUP>
     <GROUP id="{88B177CC-4518-6E33-83DA-73272A8E4740}" name="Source">
+      <FILE id="PrcGBH" name="PresetManager.h" compile="0" resource="0" file="Source/PresetManager.h"/>
       <FILE id="rnOLCn" name="PluginProcessor.cpp" compile="1" resource="0"
             file="Source/PluginProcessor.cpp"/>
       <FILE id="VXblnV" name="PluginProcessor.h" compile="0" resource="0"

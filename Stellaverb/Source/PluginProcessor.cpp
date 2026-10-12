@@ -64,10 +64,8 @@ StellaverbAudioProcessor::readIRSettings() const
 }
 
 juce::AudioBuffer<float>
-StellaverbAudioProcessor::buildIR(const IRSettings& settings) const
+StellaverbAudioProcessor::buildIR(const IRSettings& settings)
 {
-    IRGenerator generator { irSampleRate, 2 };
-
     generator.setLengthSeconds(settings[0]);
     generator.setMinDistance(settings[1]);
     generator.setMaxDistance(settings[2]);
@@ -463,7 +461,10 @@ void StellaverbAudioProcessor::getStateInformation(juce::MemoryBlock& destData)
     auto state = parameters.copyState();
 
     if (auto xml = state.createXml())
+    {
+        xml->setAttribute("presetName", presetManager.getCurrentPresetName());
         copyXmlToBinary(*xml, destData);
+    }
 }
 
 void StellaverbAudioProcessor::setStateInformation(const void* data, int sizeInBytes)
@@ -476,6 +477,8 @@ void StellaverbAudioProcessor::setStateInformation(const void* data, int sizeInB
     if (xml == nullptr || !xml->hasTagName("parameters"))
         return;
 
+    const auto presetName = xml->getStringAttribute("presetName", "Default");
+    xml->removeAttribute("presetName");
     auto restoredState = juce::ValueTree::fromXml(*xml);
 
     if (!restoredState.isValid())
@@ -487,6 +490,7 @@ void StellaverbAudioProcessor::setStateInformation(const void* data, int sizeInB
         const juce::ScopedLock generationGuard(generationLock);
 
         parameters.replaceState(restoredState);
+        presetManager.setCurrentPresetName(presetName);
         // Ensure the next generation uses the restored settings.
         hasGeneratedIR = false;
 

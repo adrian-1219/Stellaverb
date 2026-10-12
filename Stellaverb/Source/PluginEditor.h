@@ -71,6 +71,7 @@ public:
     }
 
 private:
+    
     class WaveformDisplay : public juce::Component
     {
     public:
@@ -265,6 +266,9 @@ private:
     
     CustomLookAndFeel customLook;
     
+    juce::Label helpLabel;
+    void updateHelpText();
+    
     void timerCallback() override;
     void refreshWaveformFromCache();
     juce::uint64 lastDisplayedIRVersion = 0;
@@ -274,6 +278,14 @@ private:
         const juce::AudioBuffer<float>& buffer);
     std::unique_ptr<juce::FileChooser> exportChooser;
     void exportIR();
+    
+    juce::TextButton presetButton { "Default" };
+    juce::Label presetLabel;
+    std::unique_ptr<juce::AlertWindow> presetSaveDialog;
+
+    void updatePresetButton();
+    void showPresetMenu();
+    void showSavePresetDialog();
     
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (StellaverbAudioProcessorEditor)
 };

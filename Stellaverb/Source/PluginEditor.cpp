@@ -9,6 +9,38 @@
 #include "PluginProcessor.h"
 #include "PluginEditor.h"
 
+class ModeHelpItem : public juce::PopupMenu::CustomComponent
+{
+public:
+    ModeHelpItem(const juce::String& name,
+                 const juce::String& description)
+        : title(name), helpText(description)
+    {
+    }
+
+    void getIdealSize(int& width, int& height) override
+    {
+        width = 180;
+        height = 30;
+    }
+
+    void paint(juce::Graphics& g) override
+    {
+        const auto* item = getItem();
+
+        getLookAndFeel().drawPopupMenuItem(
+            g, getLocalBounds(),
+            false, true, isItemHighlighted(),
+            item != nullptr && item->isTicked,
+            false, title, {}, nullptr, nullptr);
+    }
+
+    juce::String helpText;
+
+private:
+    juce::String title;
+};
+
 
 //==============================================================================
 StellaverbAudioProcessorEditor::StellaverbAudioProcessorEditor (StellaverbAudioProcessor& p)
@@ -107,9 +139,28 @@ StellaverbAudioProcessorEditor::StellaverbAudioProcessorEditor (StellaverbAudioP
     irGenerationModeLabel.setLookAndFeel(&customLook);
     addAndMakeVisible(irGenerationModeLabel);
     
-    irGenerationMode.addItem("Acoustic", 1);
-    irGenerationMode.addItem("Reverse", 2);
-    irGenerationMode.addItem("Sustain", 3);
+    auto* modeMenu = irGenerationMode.getRootMenu();
+
+    modeMenu->addCustomItem(
+        1,
+        std::make_unique<ModeHelpItem>(
+            "Acoustic",
+            "Acoustic: Closer stars contribute more strongly to the reverb."),
+        nullptr, "Acoustic");
+
+    modeMenu->addCustomItem(
+        2,
+        std::make_unique<ModeHelpItem>(
+            "Reverse",
+            "Reverse: More distant stars contribute more strongly to the reverb."),
+        nullptr, "Reverse");
+
+    modeMenu->addCustomItem(
+        3,
+        std::make_unique<ModeHelpItem>(
+            "Sustain",
+            "Sustain: Each star's contribution depends on its brightness."),
+        nullptr, "Sustain");
     
     irGenerationMode.setLookAndFeel(&customLook);
     addAndMakeVisible(irGenerationMode);
@@ -185,19 +236,76 @@ StellaverbAudioProcessorEditor::StellaverbAudioProcessorEditor (StellaverbAudioP
     stars = std::move(subset);
     
     addAndMakeVisible(starDisplay);
+    addAndMakeVisible(helpLabel);
+
+    helpLabel.setJustificationType(juce::Justification::centredLeft);
+    helpLabel.setColour(
+        juce::Label::textColourId,
+        juce::Colours::white.withAlpha(0.75f));
+
+    helpLabel.setFont(juce::FontOptions(13.0f));
+    helpLabel.setInterceptsMouseClicks(false, false);
+    helpLabel.setText(
+        "Hover over a control for help.",
+        juce::dontSendNotification);
+
+    length.setTooltip("Length: Sets the duration of the generated impulse response.");
+    minDistance.setTooltip("Min distance: Excludes stars nearer than this relative distance.");
+    maxDistance.setTooltip("Max distance: Excludes stars farther than this relative distance.");
+    minBrightness.setTooltip("Min brightness: Excludes stars below this relative brightness.");
+    maxBrightness.setTooltip("Max brightness: Excludes stars above this relative brightness.");
+
+    predelay.setTooltip("Pre-delay: Adds a delay before the reverb begins.");
+    lowFreq.setTooltip("HP cutoff: Removes low frequencies from the reverb.");
+    highFreq.setTooltip("LP cutoff: Removes high frequencies from the reverb.");
+    drive.setTooltip("Drive: Adds saturation to the reverb.");
+    width.setTooltip("Width: Adjusts the stereo spread of the reverb.");
+    dryWet.setTooltip("Dry/Wet: Balances the original signal and the reverb.");
+    gain.setTooltip("Gain: Adjusts the final output level.");
+
+    irGenerationMode.setTooltip(
+        "IR Gen Mode: Chooses the mapping used when generating the impulse response.");
+
+    exportButton.setTooltip(
+        "Export IR: Saves the latest generated impulse response as a WAV file.");
+    
+    lengthLabel.setTooltip(length.getTooltip());
+    minDistanceLabel.setTooltip(minDistance.getTooltip());
+    maxDistanceLabel.setTooltip(maxDistance.getTooltip());
+    minBrightnessLabel.setTooltip(minBrightness.getTooltip());
+    maxBrightnessLabel.setTooltip(maxBrightness.getTooltip());
+    predelayLabel.setTooltip(predelay.getTooltip());
+    lowFreqLabel.setTooltip(lowFreq.getTooltip());
+    highFreqLabel.setTooltip(highFreq.getTooltip());
+    driveLabel.setTooltip(drive.getTooltip());
+    widthLabel.setTooltip(width.getTooltip());
+    dryWetLabel.setTooltip(dryWet.getTooltip());
+    gainLabel.setTooltip(gain.getTooltip());
+    irGenerationModeLabel.setTooltip(irGenerationMode.getTooltip());
+    
+    addAndMakeVisible(presetButton);
+    presetButton.setTooltip("Load or save a preset.");
+    presetButton.onClick = [this]() { showPresetMenu(); };
+    presetLabel.setText("Preset", juce::dontSendNotification);
+    presetLabel.attachToComponent(&presetButton, false);
+    presetLabel.setJustificationType(juce::Justification::centred);
+    presetLabel.setTooltip("Load or save a preset.");
+    addAndMakeVisible(presetLabel);
+    updatePresetButton();
 
     // Make sure that before the constructor has finished, you've set the
     // editor's size to whatever you need it to be.
-    setSize(860, 520);
+    setSize(860, 540);
     
     refreshWaveformFromCache();
-    startTimer(200);
+    startTimer(100);
 }
 
 StellaverbAudioProcessorEditor::~StellaverbAudioProcessorEditor()
 {
     stopTimer();
     exportChooser.reset();
+    presetSaveDialog.reset();
     
     setLookAndFeel(nullptr);
     irGenerationMode.setLookAndFeel(nullptr);
@@ -351,6 +459,8 @@ void StellaverbAudioProcessorEditor::refreshWaveformFromCache()
 void StellaverbAudioProcessorEditor::timerCallback()
 {
     refreshWaveformFromCache();
+    updateHelpText();
+    updatePresetButton();
 }
 
 //==============================================================================
@@ -376,12 +486,36 @@ void StellaverbAudioProcessorEditor::paint (juce::Graphics& g)
     g.setColour (juce::Colours::white);
     g.setFont (juce::FontOptions (juce::Font::getDefaultMonospacedFontName(), 10.0f, juce::Font::plain));
     
+    juce::AttributedString credit;
+    credit.setJustification(juce::Justification::centredRight);
+
+    credit.append("Stellaverb by ", juce::Colours::white.withAlpha(0.75f));
+    credit.append("Adrian Lam", juce::Colours::orange);
+    
+    credit.setFont(juce::Font(juce::FontOptions(juce::Font::getDefaultMonospacedFontName(), 13.0f, juce::Font::plain)));
+
+    credit.draw(g, juce::Rectangle<float>(
+        getWidth() - 235.0f,
+        getHeight() - 32.0f,
+        220.0f,
+        32.0f));
+    
     
     // waveformDisplay painting is handled by its own paint method
 }
 
 void StellaverbAudioProcessorEditor::resized()
 {
+    constexpr int helpHeight = 32;
+
+    const int footerY = getHeight() - helpHeight;
+    const int contentHeight = footerY;
+
+    helpLabel.setBounds(
+        15, footerY,
+        juce::jmax(0, getWidth() - 265),
+        helpHeight);
+
     int starAreaSize = 360;
     int starPadding = 15;
     int starY = 15;
@@ -391,7 +525,7 @@ void StellaverbAudioProcessorEditor::resized()
     int rightAreaWidth = getWidth() - rightAreaX;
 
     int waveformY = starY + starAreaSize + 15;
-    waveformDisplay.setBounds(starPadding, waveformY, starAreaSize, getHeight() - waveformY - 15);
+    waveformDisplay.setBounds(starPadding, waveformY, starAreaSize,  juce::jmax(0, contentHeight - waveformY - 15));
 
     int sliderWidth = 88;
     int sliderHeight = 85;
@@ -413,17 +547,19 @@ void StellaverbAudioProcessorEditor::resized()
     x1 += sliderWidth + padding;
     maxBrightness.setBounds(x1, y, sliderWidth, sliderHeight);
     
-    // Generate IR button & Mode Combo
+    // IR mode, presets and IR export
     int btnWidth = 120;
     int btnHeight = 35;
     int comboWidth = 120;
     
-    int componentsWidth = btnWidth + comboWidth + padding;
+    int componentsWidth = comboWidth + 2 * btnWidth + 2 * padding;
     int btnX = rightAreaX + (rightAreaWidth - componentsWidth) / 2;
     
     int btnY = y + sliderHeight + 40; // Spacing below top row
     irGenerationMode.setBounds(btnX, btnY, comboWidth, btnHeight);
-    exportButton.setBounds(btnX + comboWidth + padding, btnY, btnWidth, btnHeight);
+    presetButton.setBounds(btnX + comboWidth + padding, btnY, btnWidth, btnHeight);
+    exportButton.setBounds(btnX + comboWidth + btnWidth + 2 * padding,
+                           btnY, btnWidth, btnHeight);
     
     // Middle row (4 options)
     int row1Y = btnY + btnHeight + 40;
@@ -450,6 +586,156 @@ void StellaverbAudioProcessorEditor::resized()
     dryWet.setBounds(x1_row2, row2Y, sliderWidth, sliderHeight);
     x1_row2 += sliderWidth + padding;
     gain.setBounds(x1_row2, row2Y, sliderWidth, sliderHeight);
+}
+
+void StellaverbAudioProcessorEditor::updateHelpText()
+{
+    if (irGenerationMode.isPopupActive())
+    {
+        juce::PopupMenu::MenuItemIterator iterator(
+            *irGenerationMode.getRootMenu());
+
+        while (iterator.next())
+        {
+            auto* item = dynamic_cast<ModeHelpItem*>(
+                iterator.getItem().customComponent.get());
+
+            if (item != nullptr && item->isItemHighlighted())
+            {
+                if (helpLabel.getText() != item->helpText)
+                    helpLabel.setText(
+                        item->helpText, juce::dontSendNotification);
+
+                return;
+            }
+        }
+    }
+    
+    juce::String text = "Hover over a control for help.";
+
+    auto* component = juce::Desktop::getInstance()
+        .getMainMouseSource()
+        .getComponentUnderMouse();
+
+    // Only inspect controls belonging to this editor.
+    if (component != nullptr && isParentOf(component))
+    {
+        while (component != nullptr && component != this)
+        {
+            if (auto* client =
+                    dynamic_cast<juce::TooltipClient*>(component))
+            {
+                const auto tooltip = client->getTooltip();
+
+                if (tooltip.isNotEmpty())
+                {
+                    text = tooltip;
+                    break;
+                }
+            }
+
+            component = component->getParentComponent();
+        }
+    }
+
+    if (helpLabel.getText() != text)
+        helpLabel.setText(text, juce::dontSendNotification);
+}
+
+void StellaverbAudioProcessorEditor::updatePresetButton()
+{
+    const auto name = audioProcessor.presetManager.getCurrentPresetName();
+    if (presetButton.getButtonText() != name)
+        presetButton.setButtonText(name);
+    presetButton.setTooltip("Preset: " + name + ". Click to load or save a preset.");
+}
+
+void StellaverbAudioProcessorEditor::showPresetMenu()
+{
+    // Re-read each time so presets saved in another instance also appear.
+    const auto names = audioProcessor.presetManager.getPresetNames();
+    juce::PopupMenu menu;
+    menu.addItem(1, "Save preset as...");
+    menu.addSeparator();
+    menu.addSectionHeader("USER PRESETS");
+
+    if (names.isEmpty())
+        menu.addItem(2, "No presets saved", false);
+    else
+        for (int i = 0; i < names.size(); ++i)
+            menu.addItem(i + 2, names[i]);
+
+    juce::Component::SafePointer<StellaverbAudioProcessorEditor> safeThis(this);
+    menu.showMenuAsync(
+        juce::PopupMenu::Options().withTargetComponent(&presetButton)
+                                 .withDeletionCheck(*this),
+        [safeThis, names](int result)
+        {
+            if (safeThis == nullptr || result == 0)
+                return;
+
+            if (result == 1)
+            {
+                safeThis->showSavePresetDialog();
+                return;
+            }
+
+            const int index = result - 2;
+            if (!juce::isPositiveAndBelow(index, names.size()))
+                return;
+
+            const auto loaded =
+                safeThis->audioProcessor.presetManager.loadPreset(names[index]);
+
+            safeThis->updatePresetButton();
+
+            if (loaded.failed())
+                juce::AlertWindow::showMessageBoxAsync(
+                    juce::AlertWindow::WarningIcon,
+                    "Could not load preset", loaded.getErrorMessage());
+        });
+}
+
+void StellaverbAudioProcessorEditor::showSavePresetDialog()
+{
+    if (presetSaveDialog != nullptr)
+        return;
+
+    presetSaveDialog = std::make_unique<juce::AlertWindow>(
+        "Save preset as...", "Enter a new preset name.",
+        juce::AlertWindow::NoIcon, this);
+
+    presetSaveDialog->addTextEditor("name", "", "Preset name:");
+    presetSaveDialog->getTextEditor("name")->setInputRestrictions(
+        80, "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789 _-");
+    presetSaveDialog->addButton("Save", 1, juce::KeyPress(juce::KeyPress::returnKey));
+    presetSaveDialog->addButton("Cancel", 0, juce::KeyPress(juce::KeyPress::escapeKey));
+
+    juce::Component::SafePointer<StellaverbAudioProcessorEditor> safeThis(this);
+    presetSaveDialog->enterModalState(
+        true,
+        juce::ModalCallbackFunction::create([safeThis](int result)
+        {
+            if (safeThis == nullptr || safeThis->presetSaveDialog == nullptr)
+                return;
+
+            const auto name = safeThis->presetSaveDialog
+                ->getTextEditorContents("name").trim();
+            safeThis->presetSaveDialog.reset();
+
+            if (result != 1)
+                return;
+
+            const auto saved = safeThis->audioProcessor.presetManager.savePreset(name);
+            safeThis->updatePresetButton();
+
+            juce::AlertWindow::showMessageBoxAsync(
+                saved.wasOk() ? juce::AlertWindow::InfoIcon
+                              : juce::AlertWindow::WarningIcon,
+                saved.wasOk() ? "Preset saved" : "Could not save preset",
+                saved.wasOk() ? "Saved preset: " + name : saved.getErrorMessage());
+        }),
+        false);
 }
 
 void CustomLookAndFeel::drawRotarySlider(juce::Graphics& g,

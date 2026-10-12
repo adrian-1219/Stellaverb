@@ -69,7 +69,7 @@ public:
         std::fill(left, left + irLengthSamples, 0.0f);
         std::fill(right, right + irLengthSamples, 0.0f);
         
-        DBG("Stars: " << stars.size());
+//        DBG("Stars: " << stars.size());
         
         for (const auto& s : stars)
         {
