@@ -53,6 +53,3 @@ These are standard processing effects found in most reverb plugins.
 - Width - controls the amount of mid side widening 
 - Dry/Wet - controls the balance between the original signal and the convolved signal
 - Gain - controls the gain of the final output signal 
-
-## Further Information
-More detailed information about the development process and challenges can be found in the [final report](./submission/MAP_A3_FinalProject_Report.pdf). 
