@@ -654,6 +654,17 @@ void StellaverbAudioProcessorEditor::showPresetMenu()
 {
     // Re-read each time so presets saved in another instance also appear.
     const auto names = audioProcessor.presetManager.getPresetNames();
+    juce::StringArray factoryNames, factoryResources;
+    for (int i = 0; i < BinaryData::namedResourceListSize; ++i)
+    {
+        const juce::String filename(BinaryData::originalFilenames[i]);
+        if (filename.endsWithIgnoreCase(".preset"))
+        {
+            factoryNames.add(filename.dropLastCharacters(7));
+            factoryResources.add(BinaryData::namedResourceList[i]);
+        }
+    }
+    const int firstUserID = 2 + factoryNames.size();
     // Keep the menu theme alive until the asynchronous popup has closed.
     auto menuLook = std::make_shared<CustomLookAndFeel>();
     for (const auto colourID : { juce::PopupMenu::backgroundColourId,
@@ -669,18 +680,24 @@ void StellaverbAudioProcessorEditor::showPresetMenu()
     menu.addSectionHeader("USER PRESETS");
 
     if (names.isEmpty())
-        menu.addItem(2, "No presets saved", false);
+        menu.addItem(-1, "No presets saved", false);
     else
         for (int i = 0; i < names.size(); ++i)
-            menu.addItem(i + 2, names[i], true,
+            menu.addItem(firstUserID + i, names[i], true,
                          names[i] == audioProcessor.presetManager.getCurrentPresetName());
+
+    menu.addSeparator();
+    menu.addSectionHeader("FACTORY PRESETS");
+    for (int i = 0; i < factoryNames.size(); ++i)
+        menu.addItem(i + 2, factoryNames[i], true,
+                     factoryNames[i] == audioProcessor.presetManager.getCurrentPresetName());
 
     juce::Component::SafePointer<StellaverbAudioProcessorEditor> safeThis(this);
     menu.showMenuAsync(
         juce::PopupMenu::Options().withTargetComponent(&presetButton)
                                  .withStandardItemHeight(30)
                                  .withDeletionCheck(*this),
-        [safeThis, names, menuLook](int result)
+        [safeThis, names, factoryNames, factoryResources, firstUserID, menuLook](int result)
         {
             if (safeThis == nullptr || result == 0)
                 return;
@@ -691,12 +708,23 @@ void StellaverbAudioProcessorEditor::showPresetMenu()
                 return;
             }
 
-            const int index = result - 2;
-            if (!juce::isPositiveAndBelow(index, names.size()))
-                return;
-
-            const auto loaded =
-                safeThis->audioProcessor.presetManager.loadPreset(names[index]);
+            auto loaded = juce::Result::fail("Preset not found.");
+            if (result >= 2 && result < firstUserID)
+            {
+                const int index = result - 2;
+                int size = 0;
+                const auto* data = BinaryData::getNamedResource(
+                    factoryResources[index].toRawUTF8(), size);
+                loaded = safeThis->audioProcessor.presetManager.loadPresetFromMemory(
+                    data, size, factoryNames[index]);
+            }
+            else
+            {
+                const int index = result - firstUserID;
+                if (!juce::isPositiveAndBelow(index, names.size()))
+                    return;
+                loaded = safeThis->audioProcessor.presetManager.loadPreset(names[index]);
+            }
 
             safeThis->updatePresetButton();
 

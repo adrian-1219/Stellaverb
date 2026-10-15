@@ -92,33 +92,19 @@ public:
         if (!file.existsAsFile())
             return juce::Result::fail("Preset not found.");
 
-        auto xml = juce::XmlDocument::parse(file);
+        return restorePresetXml(juce::XmlDocument::parse(file), cleanName);
+    }
 
-        if (xml == nullptr || !xml->hasTagName("PluginPreset"))
-            return juce::Result::fail("Invalid preset file.");
+    // Accepts embedded preset bytes without depending on a project's BinaryData.
+    juce::Result loadPresetFromMemory(const void* data, int size,
+                                     const juce::String& name)
+    {
+        if (data == nullptr || size <= 0)
+            return juce::Result::fail("Empty factory preset.");
 
-        if (xml->getStringAttribute("pluginID") != pluginID)
-            return juce::Result::fail("This preset belongs to another plugin.");
-
-        if (xml->getIntAttribute("formatVersion") != 1)
-            return juce::Result::fail("Unsupported preset format.");
-
-        juce::MemoryBlock state;
-
-        if (!state.fromBase64Encoding(xml->getStringAttribute("state"))
-            || state.getSize() == 0
-            || state.getSize() >
-                static_cast<size_t>(std::numeric_limits<int>::max()))
-        {
-            return juce::Result::fail("Invalid preset state.");
-        }
-
-        processor.setStateInformation(
-            state.getData(),
-            static_cast<int>(state.getSize()));
-
-        setCurrentPresetName(cleanName);
-        return juce::Result::ok();
+        return restorePresetXml(
+            juce::XmlDocument::parse(juce::String::fromUTF8(
+                static_cast<const char*>(data), size)), name);
     }
 
     juce::String getCurrentPresetName() const
@@ -148,6 +134,36 @@ public:
     }
 
 private:
+    juce::Result restorePresetXml(std::unique_ptr<juce::XmlElement> xml,
+                                  const juce::String& name)
+    {
+        if (xml == nullptr || !xml->hasTagName("PluginPreset"))
+            return juce::Result::fail("Invalid preset file.");
+
+        if (xml->getStringAttribute("pluginID") != pluginID)
+            return juce::Result::fail("This preset belongs to another plugin.");
+
+        if (xml->getIntAttribute("formatVersion") != 1)
+            return juce::Result::fail("Unsupported preset format.");
+
+        juce::MemoryBlock state;
+
+        if (!state.fromBase64Encoding(xml->getStringAttribute("state"))
+            || state.getSize() == 0
+            || state.getSize() >
+                static_cast<size_t>(std::numeric_limits<int>::max()))
+        {
+            return juce::Result::fail("Invalid preset state.");
+        }
+
+        processor.setStateInformation(
+            state.getData(),
+            static_cast<int>(state.getSize()));
+
+        setCurrentPresetName(name);
+        return juce::Result::ok();
+    }
+
     static bool isValidName(const juce::String& name)
     {
         return name.isNotEmpty()

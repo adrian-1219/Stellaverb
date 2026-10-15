@@ -18,6 +18,24 @@
       <FILE id="oQKyzR" name="IRGenerator.h" compile="0" resource="0" file="Source/IRGenerator.h"/>
       <FILE id="X3vUGs" name="PluginEditor.h" compile="0" resource="0" file="Source/PluginEditor.h"/>
     </GROUP>
+    <GROUP id="{1F523474-2532-01BB-FA02-364CC9572B8C}" name="Factory Presets">
+      <FILE id="FkckWW" name="Default.preset" compile="0" resource="1" file="Source/Factory Presets/Default.preset"/>
+      <FILE id="wiAgBp" name="Flicker.preset" compile="0" resource="1" file="Source/Factory Presets/Flicker.preset"/>
+      <FILE id="zmWH7J" name="Glimmer.preset" compile="0" resource="1" file="Source/Factory Presets/Glimmer.preset"/>
+      <FILE id="xWJYHy" name="Infall.preset" compile="0" resource="1" file="Source/Factory Presets/Infall.preset"/>
+      <FILE id="tlypiB" name="Nebula.preset" compile="0" resource="1" file="Source/Factory Presets/Nebula.preset"/>
+      <FILE id="YaV1jU" name="Nova.preset" compile="0" resource="1" file="Source/Factory Presets/Nova.preset"/>
+      <FILE id="kYC0H2" name="Quanta.preset" compile="0" resource="1" file="Source/Factory Presets/Quanta.preset"/>
+      <FILE id="se0i9Y" name="Retrograde.preset" compile="0" resource="1"
+            file="Source/Factory Presets/Retrograde.preset"/>
+      <FILE id="XBiMV1" name="Singularity.preset" compile="0" resource="1"
+            file="Source/Factory Presets/Singularity.preset"/>
+      <FILE id="JgBUa2" name="Spark.preset" compile="0" resource="1" file="Source/Factory Presets/Spark.preset"/>
+      <FILE id="ZiMon9" name="Starfield.preset" compile="0" resource="1"
+            file="Source/Factory Presets/Starfield.preset"/>
+      <FILE id="Md2gkk" name="Timewarp.preset" compile="0" resource="1" file="Source/Factory Presets/Timewarp.preset"/>
+      <FILE id="Dpnbr4" name="Twinkle.preset" compile="0" resource="1" file="Source/Factory Presets/Twinkle.preset"/>
+    </GROUP>
   </MAINGROUP>
   <MODULES>
     <MODULE id="juce_audio_basics" showAllCode="1" useLocalCopy="0" useGlobalPath="1"/>
