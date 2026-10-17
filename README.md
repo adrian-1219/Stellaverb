@@ -1,7 +1,7 @@
 
-## Stellaverb
+# Stellaverb
 
-Inspired by [Katsuhiro Chiba's Max MSP patch](https://audiooo.com/stellaverb), Stellaverb is a convolution reverb plugin that transforms astronomical data into unique reverberation textures. Drawing from the ESA Gaia Star Catalogue, it explores the idea of simulating how sound might propagate to distant stars and return, while also enabling more abstract, creative reverbs shaped by stellar properties such as distance, brightness, and position.
+Inspired by [Katsuhiro Chiba's Max MSP patch](https://audiooo.com/stellaverb), Stellaverb is a convolution reverb plugin that transforms astronomical data into unique reverberation textures. Drawing from the ESA Gaia Star Catalogue, it imagines what a reverb in space would sound like, while also enabling more abstract, creative reverbs shaped by stellar properties such as distance, brightness, and position.
 
 This project was developed as the final assignment for the ECS7012 Music and Audio Programming module at Queen Mary University of London.
 
@@ -16,60 +16,35 @@ TODO
 
 ## Features
 
-The core of the plugin is its ability to generate an impulse response (IR) using the star data based on the user's settings, then convolving the input signal with the generated IR. Each star is mapped to a sample in the IR based on its distance, position and brightness.
-
-The plugin has 3 modes, 5 IR generation parameters, and 7 post-processing effects.
-
 ![Screenshot of UI](./assets/ui.png)
 
-### Modes
-Modes are different mapping algorithms used when converting star data into impulse responses.
-- Acoustic
-    - Meant to simulate the acoustic effect of sound propagating to the stars and back
-    - Distance of each star is mapped to delay time and attenuation, closer stars are louder while further stars are quieter
-    - Position of each star is mapped to stereo panning
-    - Same as original Stellaverb Max MSP patch
-- Reverse:
-    - Opposite of Acoustic where further stars are louder and closer stars are quieter
-    - Distance of each star is mapped to delay time and attenuation, closer stars are quieter while further stars are louder
-    - Position of each star is mapped to stereo panning
-- Sustain:
-    - Brightness of each star is mapped to amplitude (loudness)
-    - Distance of each star is mapped to delay time
-    - Position of each star is mapped to stereo panning
+The core of the plugin is its ability to generate an impulse response (IR) using the star data based on the user's settings, then convolving the input signal with the generated IR. Each star is mapped to a sample in the IR based on its distance, position and brightness.
 
-### IR Generation Parameters
-These are parameters that control which stars are used when generating the IR and the length of the generated IR.
-- Length - length of the generated IR in seconds
-- Min Distance - minimum distance of the stars used in IR generation (stars closer than Min Distance will be filtered out)
-- Max Distance - maximum distance of the stars used in IR generation
-- Min Brightness - minimum brightness of the stars used in IR generation
-- Max Brightness - maximum brightness of the stars used in IR generation
-
-### Other Processing Effects
-These are standard processing effects found in most reverb plugins.
-- Pre-delay - controls the amount of time between the original dry sound and the onset of the reverb effect
-- Highpass Cutoff - controls the threshold where the frequencies below it begins to be reduced in amplitude
-- Lowpass Cutoff - controls the threshold where the frequencies above it begins to be reduced in amplitude
-- Drive - controls the amount of drive in tanh saturation
-- Width - controls the amount of mid side widening
-- Dry/Wet - controls the balance between the original signal and the convolved signal
-- Gain - controls the gain of the final output signal
+- **Reverb generated from star data:** transforms distance, brightness, and position from the ESA Gaia star catalogue into stereo impulse responses.
+- **Three generation modes:**
+  - **Acoustic:** closer stars contribute more strongly, creating a decaying reverb.
+  - **Reverse:** more distant stars contribute more strongly, creating a rising reverb.
+  - **Sustain:** brightness determines each star's contribution, creating sustained textures.
+- **Adjustable IR generation:** control the impulse response length and filter stars by distance and brightness.
+- **Interactive star visualisation:** displays a subset of the stars and responds to your selection settings.
+- **Sound-shaping controls:** pre-delay, highpass and lowpass filters, drive, stereo width, dry/wet mix, and output gain.
+- **Factory and user presets:** explore included sounds and save your own.
+- **WAV export:** export generated impulse responses for use in other convolution tools.
+- **Open source:** available under the GNU AGPLv3 licence.
 
 ## Build Instructions
 
-Use JUCE 8.0.12 Projucer and Xcode (the packaged binaries used Xcode 16.3).
-JUCE 8.0.12 including Projucer source:
-https://github.com/juce-framework/JUCE/tree/8.0.12
-https://github.com/juce-framework/JUCE/archive/refs/tags/8.0.12.zip
+Use JUCE 8.0.12, including Projucer.
 
-1. Open Source/Stellaverb/Stellaverb.jucer in Projucer 8.0.12.
-2. Set Projucer's global JUCE modules path to Source/JUCE/modules in this
-   extracted package. The project uses global module paths, so this overrides
-   any developer-specific paths stored in the project.
-3. Save/export the Xcode project and open Builds/MacOSX/Stellaverb.xcodeproj.
-4. Build the VST3 and AU schemes in Release for arm64, targeting macOS 11.0.
-5. Products are written to Builds/MacOSX/build/Release under the project.
+1. Download JUCE 8.0.12.
+2. Open Stellaverb/Stellaverb.jucer in Projucer.
+3. Set Projucer's global JUCE modules path to the downloaded JUCE modules folder.
+4. Select the exporter for your platform. (Xcode for macOS, Visual Studio 2022 for Windows)
+5. Click Save and Open in IDE to generate and open the platform-specific project.
+
+macOS: Build the VST3 and/or AU targets using the Release configuration.
+
+Windows: Select Release and x64 in Visual Studio, then build the VST3 project. AU is only available on macOS.
 
 The star data and presets are already included. The Python scripts are only
 needed to recreate the processed dataset, not to build the plugin.
