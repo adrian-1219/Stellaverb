@@ -35,6 +35,17 @@ public:
 
     juce::Font getTextButtonFont (juce::TextButton&, int buttonHeight) override;
     juce::Font getPopupMenuFont() override;
+    void drawPopupMenuSectionHeader(juce::Graphics& g,
+                                    const juce::Rectangle<int>& area,
+                                    const juce::String& sectionName) override
+    {
+        g.setFont(getPopupMenuFont());
+        g.setColour(findColour(juce::PopupMenu::headerTextColourId));
+        g.drawFittedText(sectionName,
+                         area.getX() + 12, area.getY(), area.getWidth() - 16,
+                         static_cast<int>(area.getHeight() * 0.8f),
+                         juce::Justification::bottomLeft, 1);
+    }
     juce::Font getComboBoxFont (juce::ComboBox& box) override;
 
     juce::Path getTickShape (float height) override;
@@ -47,7 +58,7 @@ public:
                             const juce::Drawable* icon, const juce::Colour* const textColourToUse) override;
 };
 
-class StellaverbAudioProcessorEditor  : public juce::AudioProcessorEditor
+class StellaverbAudioProcessorEditor  : public juce::AudioProcessorEditor, private juce::Timer
 {
 public:
     StellaverbAudioProcessorEditor (StellaverbAudioProcessor&);
@@ -57,28 +68,21 @@ public:
     void paint (juce::Graphics&) override;
     void resized() override;
     
-    struct StarGUI
-    {
-        float x;
-        float y;
-        float z;
-        float amplitude;
-        float distance;
-        float azimuth;
-    };
+    using StarGUI = IRGenerator::Star;
     
     std::vector<StarGUI> stars;
     
     void loadStarData()
     {
-        const void* rawData = BinaryData::stars_sorted_GUI_bin;
-        size_t dataSize = BinaryData::stars_sorted_GUI_binSize;
+        const void* rawData = BinaryData::stars_sorted_bin;
+        size_t dataSize = BinaryData::stars_sorted_binSize;
         size_t count = dataSize / sizeof(StarGUI);
         stars.resize(count);
         std::memcpy(stars.data(), rawData, dataSize);
     }
 
 private:
+    
     class WaveformDisplay : public juce::Component
     {
     public:
@@ -147,51 +151,69 @@ private:
 
         void paint(juce::Graphics& g) override
         {
+            
             g.setColour(juce::Colours::black);
             g.fillEllipse(getLocalBounds().toFloat());
             
-            float halfW = getWidth() * 0.5f;
-            float halfH = getHeight() * 0.5f;
-            float cosRot = std::cos(rotation);
-            float sinRot = std::sin(rotation);
-            
-            float scale = 1.0f; // Constant scale so it doesn't zoom in/out
-            
-            for (const auto& star : starsRef)
+            // If range is invalid, display no stars selected message, otherwise draw the stars
+            if (maxDistance <= minDistance
+                || maxBrightness < minBrightness)
             {
-                if (star.distance > maxDistance or star.distance < minDistance or star.amplitude < minBrightness or star.amplitude > maxBrightness) {
-                    continue;
+                g.setColour(juce::Colours::white.withAlpha(0.7f));
+                g.setFont(16.0f);
+
+                g.drawText(
+                    "[No stars selected]",
+                    getLocalBounds(),
+                    juce::Justification::centred);
+            } else {
+                float halfW = getWidth() * 0.5f;
+                float halfH = getHeight() * 0.5f;
+                float cosRot = std::cos(rotation);
+                float sinRot = std::sin(rotation);
+                
+                float scale = 1.0f; // Constant scale so it doesn't zoom in/out
+                
+                for (const auto& star : starsRef)
+                {
+                    if (star.distance < minDistance
+                        || star.distance > maxDistance
+                        || star.amplitude < minBrightness
+                        || star.amplitude > maxBrightness)
+                    {
+                        continue;
+                    }
+                    
+                    float r = star.distance;
+
+                    float cx = star.x * 0.5f * r * scale;
+                    float cy = star.y * 0.5f * r * scale;
+                    float cz = star.z * 0.5f * r * scale;
+
+                    // Rotate around Y axis
+                    float rx = cx * cosRot - cz * sinRot;
+                    float rz = cx * sinRot + cz * cosRot;
+                    
+                    // Tilt forward slightly (rotate around X axis)
+                    float tiltCos = 0.866f; // cos(30 deg)
+                    float tiltSin = 0.5f;   // sin(30 deg)
+                    
+                    float ry = cy * tiltCos - rz * tiltSin;
+                    float finalZ = cy * tiltSin + rz * tiltCos;
+
+                    // Perspective projection
+                    float zDistance = 1.5f;
+                    float zFactor = zDistance / (zDistance + finalZ);
+                    
+                    float px = halfW + (rx * halfW * zFactor * 1.5f);
+                    float py = halfH + (ry * halfH * zFactor * 1.5f);
+                    
+                    float alpha = juce::jlimit(0.1f, 1.0f, zFactor * 0.8f);
+                    g.setColour(juce::Colours::white.withAlpha(alpha));
+                    
+                    float size = 2.0f * zFactor;
+                    g.fillEllipse(px - size * 0.5f, py - size * 0.5f, size, size);
                 }
-                
-                float r = star.distance;
-
-                float cx = (star.x - 0.5f) * r * scale;
-                float cy = (star.y - 0.5f) * r * scale;
-                float cz = (star.z - 0.5f) * r * scale;
-
-                // Rotate around Y axis
-                float rx = cx * cosRot - cz * sinRot;
-                float rz = cx * sinRot + cz * cosRot;
-                
-                // Tilt forward slightly (rotate around X axis)
-                float tiltCos = 0.866f; // cos(30 deg)
-                float tiltSin = 0.5f;   // sin(30 deg)
-                
-                float ry = cy * tiltCos - rz * tiltSin;
-                float finalZ = cy * tiltSin + rz * tiltCos;
-
-                // Perspective projection
-                float zDistance = 1.5f;
-                float zFactor = zDistance / (zDistance + finalZ);
-                
-                float px = halfW + (rx * halfW * zFactor * 1.5f);
-                float py = halfH + (ry * halfH * zFactor * 1.5f);
-                
-                float alpha = juce::jlimit(0.1f, 1.0f, zFactor * 0.8f);
-                g.setColour(juce::Colours::white.withAlpha(alpha));
-                
-                float size = 2.0f * zFactor;
-                g.fillEllipse(px - size * 0.5f, py - size * 0.5f, size, size);
             }
             
             // Draw Ruler Axes
@@ -233,8 +255,7 @@ private:
         float minBrightness = 0.0f;
     };
 
-    juce::TextButton generateButton { "Generate IR" };
-    IRGenerator irGenerator = IRGenerator(44100.0f, 2);
+    juce::TextButton exportButton { "Export IR" };
     
     StellaverbAudioProcessor& audioProcessor;
     juce::Slider length, minDistance, maxDistance, minBrightness, maxBrightness;
@@ -256,7 +277,26 @@ private:
     
     CustomLookAndFeel customLook;
     
+    juce::Label helpLabel;
+    void updateHelpText();
     
+    void timerCallback() override;
+    void refreshWaveformFromCache();
+    juce::uint64 lastDisplayedIRVersion = 0;
+    
+    static bool writeIRToWav(
+        const juce::File& destination,
+        const juce::AudioBuffer<float>& buffer);
+    std::unique_ptr<juce::FileChooser> exportChooser;
+    void exportIR();
+    
+    juce::TextButton presetButton { "Default" };
+    juce::Label presetLabel;
+    std::unique_ptr<juce::FileChooser> presetSaveChooser;
+
+    void updatePresetButton();
+    void showPresetMenu();
+    void showSavePresetDialog();
     
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (StellaverbAudioProcessorEditor)
 };

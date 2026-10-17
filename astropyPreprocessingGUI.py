@@ -6,7 +6,7 @@ from scipy.io import wavfile
 # disable scientific notation 
 np.set_printoptions(suppress=True, precision=8)
 
-MAX_STARS = 1000000         
+MAX_STARS = 100000         
 
 tbl = Table.read("gaia_subset_parallax_7.fits")
 tbl['distance_pc'] = 1000.0 / tbl['parallax']
@@ -43,7 +43,6 @@ amplitude = np.clip(amplitude, lo, hi)
 # normalize to 0–1 evenly
 amplitude = (amplitude - lo) / (hi - lo)
 amplitude = np.nan_to_num(amplitude, nan=0.0, posinf=0.0, neginf=0.0)
-amplitude = np.sqrt(amplitude)
 
 mask = (
     np.isfinite(x) &
@@ -65,7 +64,7 @@ print("Brightness dist", np.percentile(amplitude, [0, 25, 50, 75, 100]))
 azimuth = np.arctan2(y, x)
 
 # downsample for GUI
-downsample_factor = 1000
+downsample_factor = 100
 x = x[::downsample_factor]
 y = y[::downsample_factor]
 z = z[::downsample_factor]

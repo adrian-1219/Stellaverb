@@ -1,15 +1,18 @@
 <?xml version="1.0" encoding="UTF-8"?>
 
 <JUCERPROJECT id="MUfHYk" name="Stellaverb" projectType="audioplug" useAppConfig="0"
-              addUsingNamespaceToJuceHeader="0" jucerFormatVersion="1">
+              addUsingNamespaceToJuceHeader="0" jucerFormatVersion="1" version="0.3.0"
+              companyName="Adrian Lam" companyEmail="adrian1219@ymail.com"
+              companyWebsite="https://github.com/adrian-1219/Stellaverb" bundleIdentifier="com.adrianlam.Stellaverb"
+              pluginFormats="buildAU,buildVST3" pluginDesc="Convolution reverb generated from star data"
+              pluginAAXCategory="8" pluginVST3Category="Reverb">
   <MAINGROUP id="zAIKHU" name="Stellaverb">
     <GROUP id="{D0FC7BEB-203D-0F13-A0EA-6D93AFF219A2}" name="Resources">
-      <FILE id="HRWx2P" name="stars_sorted_GUI.bin" compile="0" resource="1"
-            file="Source/stars_sorted_GUI.bin"/>
-      <FILE id="v490wK" name="stars_sorted.bin" compile="0" resource="1"
+      <FILE id="D1NC8F" name="stars_sorted.bin" compile="0" resource="1"
             file="Source/stars_sorted.bin"/>
     </GROUP>
     <GROUP id="{88B177CC-4518-6E33-83DA-73272A8E4740}" name="Source">
+      <FILE id="PrcGBH" name="PresetManager.h" compile="0" resource="0" file="Source/PresetManager.h"/>
       <FILE id="rnOLCn" name="PluginProcessor.cpp" compile="1" resource="0"
             file="Source/PluginProcessor.cpp"/>
       <FILE id="VXblnV" name="PluginProcessor.h" compile="0" resource="0"
@@ -18,6 +21,24 @@
             file="Source/PluginEditor.cpp"/>
       <FILE id="oQKyzR" name="IRGenerator.h" compile="0" resource="0" file="Source/IRGenerator.h"/>
       <FILE id="X3vUGs" name="PluginEditor.h" compile="0" resource="0" file="Source/PluginEditor.h"/>
+    </GROUP>
+    <GROUP id="{1F523474-2532-01BB-FA02-364CC9572B8C}" name="Factory Presets">
+      <FILE id="FkckWW" name="Default.preset" compile="0" resource="1" file="Source/Factory Presets/Default.preset"/>
+      <FILE id="wiAgBp" name="Flicker.preset" compile="0" resource="1" file="Source/Factory Presets/Flicker.preset"/>
+      <FILE id="zmWH7J" name="Glimmer.preset" compile="0" resource="1" file="Source/Factory Presets/Glimmer.preset"/>
+      <FILE id="xWJYHy" name="Infall.preset" compile="0" resource="1" file="Source/Factory Presets/Infall.preset"/>
+      <FILE id="tlypiB" name="Nebula.preset" compile="0" resource="1" file="Source/Factory Presets/Nebula.preset"/>
+      <FILE id="YaV1jU" name="Nova.preset" compile="0" resource="1" file="Source/Factory Presets/Nova.preset"/>
+      <FILE id="kYC0H2" name="Quanta.preset" compile="0" resource="1" file="Source/Factory Presets/Quanta.preset"/>
+      <FILE id="se0i9Y" name="Retrograde.preset" compile="0" resource="1"
+            file="Source/Factory Presets/Retrograde.preset"/>
+      <FILE id="XBiMV1" name="Singularity.preset" compile="0" resource="1"
+            file="Source/Factory Presets/Singularity.preset"/>
+      <FILE id="JgBUa2" name="Spark.preset" compile="0" resource="1" file="Source/Factory Presets/Spark.preset"/>
+      <FILE id="ZiMon9" name="Starfield.preset" compile="0" resource="1"
+            file="Source/Factory Presets/Starfield.preset"/>
+      <FILE id="Md2gkk" name="Timewarp.preset" compile="0" resource="1" file="Source/Factory Presets/Timewarp.preset"/>
+      <FILE id="Dpnbr4" name="Twinkle.preset" compile="0" resource="1" file="Source/Factory Presets/Twinkle.preset"/>
     </GROUP>
   </MAINGROUP>
   <MODULES>
@@ -43,7 +64,8 @@
     <XCODE_MAC targetFolder="Builds/MacOSX">
       <CONFIGURATIONS>
         <CONFIGURATION isDebug="1" name="Debug" targetName="Stellaverb"/>
-        <CONFIGURATION isDebug="0" name="Release" targetName="Stellaverb"/>
+        <CONFIGURATION isDebug="0" name="Release" targetName="Stellaverb" macOSDeploymentTarget="11.0"
+                       osxCompatibility="11.0 SDK"/>
       </CONFIGURATIONS>
       <MODULEPATHS>
         <MODULEPATH id="juce_audio_basics" path="../../JUCE/modules"/>
