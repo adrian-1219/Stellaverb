@@ -1,7 +1,11 @@
 <?xml version="1.0" encoding="UTF-8"?>
 
 <JUCERPROJECT id="MUfHYk" name="Stellaverb" projectType="audioplug" useAppConfig="0"
-              addUsingNamespaceToJuceHeader="0" jucerFormatVersion="1">
+              addUsingNamespaceToJuceHeader="0" jucerFormatVersion="1" version="0.3.0"
+              companyName="Adrian Lam" companyEmail="adrian1219@ymail.com"
+              companyWebsite="https://github.com/adrian-1219/Stellaverb" bundleIdentifier="com.adrianlam.Stellaverb"
+              pluginFormats="buildAU,buildVST3" pluginDesc="Convolution reverb generated from star data"
+              pluginAAXCategory="8" pluginVST3Category="Reverb">
   <MAINGROUP id="zAIKHU" name="Stellaverb">
     <GROUP id="{D0FC7BEB-203D-0F13-A0EA-6D93AFF219A2}" name="Resources">
       <FILE id="D1NC8F" name="stars_sorted.bin" compile="0" resource="1"
@@ -60,7 +64,8 @@
     <XCODE_MAC targetFolder="Builds/MacOSX">
       <CONFIGURATIONS>
         <CONFIGURATION isDebug="1" name="Debug" targetName="Stellaverb"/>
-        <CONFIGURATION isDebug="0" name="Release" targetName="Stellaverb"/>
+        <CONFIGURATION isDebug="0" name="Release" targetName="Stellaverb" macOSDeploymentTarget="11.0"
+                       osxCompatibility="11.0 SDK"/>
       </CONFIGURATIONS>
       <MODULEPATHS>
         <MODULEPATH id="juce_audio_basics" path="../../JUCE/modules"/>
