@@ -15,12 +15,13 @@ https://github.com/user-attachments/assets/cb92aee9-d773-4f54-8f14-84a707983d79
 
 Download the ZIP for your platform from the [Releases page](https://github.com/adrian-1219/Stellaverb/releases/). Extract the ZIP file and follow the instructions in INSTALL.txt. 
 
-Below are the available builds for Stellaverb v0.3.0.
+Below are the latest builds for Stellaverb.
 
-| OS | Architecture | Format |
-| -- | -- | -- |
-| Windows | x64 | VST3 |
-| macOS | Apple Silicon (arm64) | VST3, AU |
+| Download    | Platform | Formats |
+| -------- | ------- | ------- |
+| [Stellaverb-0.3.0-macOS-arm64.zip](https://github.com/adrian-1219/Stellaverb/releases/download/v0.3.0/Stellaverb-0.3.0-macOS-arm64.zip) | macOS, Apple Silicon | VST3 + AU |
+| [Stellaverb-0.3.0-Windows-x64.zip](https://github.com/adrian-1219/Stellaverb/releases/download/v0.3.0/Stellaverb-0.3.0-Windows-x64.zip) | Windows, x64 | VST3 |
+| [Stellaverb-0.3.0-source.zip](https://github.com/adrian-1219/Stellaverb/releases/download/v0.3.0/Stellaverb-0.3.0-source.zip) | Developers | Source and build instructions |
 
 ## Features
 
