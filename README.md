@@ -12,7 +12,15 @@ Here is a short demo video of what the plugin sounds like.
 https://github.com/user-attachments/assets/cb92aee9-d773-4f54-8f14-84a707983d79
 
 ## Install
-TODO
+
+Download the ZIP for your platform from the [Releases page](https://github.com/adrian-1219/Stellaverb/releases/). Extract the ZIP file and follow the instructions in INSTALL.txt. 
+
+Below are the available builds for Stellaverb v0.3.0.
+
+| OS | Architecture | Format |
+| -- | -- | -- |
+| Windows | x64 | VST3 |
+| macOS | Apple Silicon (arm64) | VST3, AU |
 
 ## Features
 
