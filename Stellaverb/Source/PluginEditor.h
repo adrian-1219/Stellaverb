@@ -230,7 +230,7 @@ private:
                 float px = axisPadx + (getWidth() - axisPadx - 20.0f) * (i / 4.0f);
                 g.drawLine(px, axisPady - 4.0f, px, axisPady + 4.0f, 1.0f);
                 float val = currentLength * (i / 4.0f) * 5.0f;
-                if (i == 0 or i == 4)
+                if (i == 0 || i == 4)
                     g.drawText(juce::String(val, 1) + " s", px - 15.0f, axisPady + 5.0f, 30.0f, 15.0f, juce::Justification::centred);
             }
             

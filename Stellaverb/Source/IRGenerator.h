@@ -35,7 +35,7 @@ public:
     {
         maxDistance = distance;
     }
-    
+
     void setMinDistance(float distance)
     {
         minDistance = distance;
@@ -44,12 +44,12 @@ public:
     {
         maxBrightness = brightness;
     }
-    
+
     void setMinBrightness(float brightness)
     {
         minBrightness = brightness;
     }
-    
+
     void setMode(int mode)
     {
         generationMode = mode;
@@ -57,33 +57,34 @@ public:
 
     void generate()
     {
-        
+
         impulseResponse.setSize(numChannels, irLengthSamples);
         impulseResponse.clear();
 
         juce::Random rng;
 
-        auto* left = impulseResponse.getWritePointer(0);
-        auto* right = impulseResponse.getWritePointer(1);
-        
+        auto *left = impulseResponse.getWritePointer(0);
+        auto *right = impulseResponse.getWritePointer(1);
+
         std::fill(left, left + irLengthSamples, 0.0f);
         std::fill(right, right + irLengthSamples, 0.0f);
-        
-//        DBG("Stars: " << stars.size());
-        
-        for (const auto& s : stars)
+
+        //        DBG("Stars: " << stars.size());
+
+        for (const auto &s : stars)
         {
-            if (s.distance < minDistance or s.amplitude < minBrightness or s.amplitude > maxBrightness) {
+            if (s.distance < minDistance || s.amplitude < minBrightness || s.amplitude > maxBrightness)
+            {
                 continue;
             }
             if (s.distance > maxDistance)
             {
                 break; // Since the dataset is sorted by distance, we don't have to check any of the stars after
             }
-        
+
             const float norm = (s.distance - minDistance) / (maxDistance - minDistance);
             int idx = (int)(norm * (irLengthSamples - 1));
-            
+
             if (idx >= 0 && idx < irLengthSamples)
             {
                 float sample;
@@ -99,21 +100,20 @@ public:
                 {
                     sample = s.amplitude;
                 }
-                left[idx]  += sample * s.left;
+                left[idx] += sample * s.left;
                 right[idx] += sample * s.right;
             }
-           
         }
-        
+
         for (int ch = 0; ch < numChannels; ++ch)
         {
-            float* data = impulseResponse.getWritePointer(ch);
-            
+            float *data = impulseResponse.getWritePointer(ch);
+
             for (int i = 0; i < irLengthSamples; ++i)
             {
-                
+
                 float t = (float)i / (float)irLengthSamples;
-                
+
                 // Exponential decay
                 float env = 1;
                 if (generationMode == 0)
@@ -122,17 +122,16 @@ public:
                 }
                 else if (generationMode == 1)
                 {
-                    env = std::exp(-3.0f * (1-t));
+                    env = std::exp(-3.0f * (1 - t));
                 }
-                
+
                 data[i] = data[i] * env;
             }
         }
         normalize();
-    
     }
 
-    bool saveToWav(const juce::File& file)
+    bool saveToWav(const juce::File &file)
     {
         if (!file.deleteFile())
             return false;
@@ -160,17 +159,16 @@ public:
         writer->writeFromAudioSampleBuffer(
             impulseResponse,
             0,
-            impulseResponse.getNumSamples()
-        );
+            impulseResponse.getNumSamples());
 
         return true;
     }
 
-    const juce::AudioBuffer<float>& getBuffer() const
+    const juce::AudioBuffer<float> &getBuffer() const
     {
         return impulseResponse;
     }
-    
+
     struct Star
     {
         float left;
@@ -182,25 +180,23 @@ public:
         float y;
         float z;
     };
-    
+
     std::vector<Star> stars;
-    
+
     void loadStarData()
     {
-        const void* rawData = BinaryData::stars_sorted_bin;
+        const void *rawData = BinaryData::stars_sorted_bin;
         size_t dataSize = BinaryData::stars_sorted_binSize;
         size_t count = dataSize / sizeof(Star);
         stars.resize(count);
         std::memcpy(stars.data(), rawData, dataSize);
     }
 
-
 private:
     double sampleRate = 44100.0;
     int numChannels = 2;
     int irLengthSamples = 44100 * 1.0f;
 
-    
     // default parameters
     // use all stars as default
     float decay = 1.0f;
@@ -212,14 +208,13 @@ private:
 
     juce::AudioBuffer<float> impulseResponse;
 
-
     void normalize()
     {
         float maxVal = 0.0f;
 
         for (int ch = 0; ch < numChannels; ++ch)
         {
-            const float* data = impulseResponse.getReadPointer(ch);
+            const float *data = impulseResponse.getReadPointer(ch);
 
             for (int i = 0; i < irLengthSamples; ++i)
                 maxVal = std::max(maxVal, std::abs(data[i]));

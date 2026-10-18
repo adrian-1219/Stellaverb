@@ -39,7 +39,7 @@ Use JUCE 8.0.12, including Projucer.
 1. Download JUCE 8.0.12.
 2. Open Stellaverb/Stellaverb.jucer in Projucer.
 3. Set Projucer's global JUCE modules path to the downloaded JUCE modules folder.
-4. Select the exporter for your platform. (Xcode for macOS, Visual Studio 2022 for Windows)
+4. Select the exporter for your platform. (Xcode for macOS, Visual Studio for Windows)
 5. Click Save and Open in IDE to generate and open the platform-specific project.
 
 macOS: Build the VST3 and/or AU targets using the Release configuration.
